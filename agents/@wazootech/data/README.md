@@ -1,8 +1,9 @@
 # Data's agent file
 
 `data.af` lands in this directory once Data's agent source exists. The file follows Letta's
-[Agent File](https://github.com/letta-ai/agent-file) format, the same convention used for
-`computer.af` in `wazootech/computer`.
+[Agent File](https://github.com/letta-ai/agent-file) format — the same convention
+[wazootech/computer#73](https://github.com/wazootech/computer/issues/73) proposes for `computer.af`.
+No `.af` exists in `wazootech/computer` yet, so this repository and that proposal move together.
 
 Rules for this directory:
 
