@@ -23,16 +23,18 @@ A category directory is created when the first piece in that category lands.
 
 ## Status
 
-Seeded and empty. Data's agent source and its runtime placement are being decided in
-[wazootech/computer#72](https://github.com/wazootech/computer/issues/72). No `.af` is committed yet,
-because that file is a projection of Data's source and must be generated rather than hand-written.
+Data's authored source and the Agent File generated from it live in `wazootech/computer` under
+`agents/data/`; its runtime placement is still being decided in
+[wazootech/computer#72](https://github.com/wazootech/computer/issues/72). `agents/@wazootech/data/data.af`
+is committed here as a published copy, but it is never hand-edited: it is generated from that source.
 Until the split lands, Computer remains the only agent in production.
 
 ## Relationship to the rest of Wazoo
 
-- `wazootech/computer` — the delivery-pipeline agent (Computer), its Discord channel, and the GitHub factory.
+- `wazootech/computer` — the general-assistant agent (Computer), its Discord channel, and the factory that runs its engineering work.
 - `wazootech/workspace` — the federation manifest that lists this repository for local checkouts.
 
-Data answers, reproduces, and escalates developer-facing problems; Computer plans, implements, and
-ships repository changes. The ownership boundary is recorded in
+Data answers, reproduces, and escalates developer-facing problems; Computer is the team's general
+assistant, and for engineering work it plans, implements, and ships repository changes. The ownership
+boundary is recorded in
 [wazootech/computer#72](https://github.com/wazootech/computer/issues/72) and in `AGENTS.md` here.
