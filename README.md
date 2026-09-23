@@ -14,7 +14,8 @@ here is Data's conversations and memory: those belong to the runtime.
 | Path | Contents |
 | --- | --- |
 | `agent/instructions.md` | Data's prompt. The source of truth for who Data is; the live Zo persona is built from it. |
-| `channels/http/` | Data's live surface: `GET /health` and `POST /ask`, deployed as the `data-http` Zo service. |
+| `channels/http/` | Data's brain over HTTP: `GET /health` and `POST /ask`, deployed as the `data-http` Zo service. |
+| `channels/discord/` | Data's Discord channel: a thin Gateway bridge, deployed as the `data-discord` Zo service, that forwards each admitted mention to `channels/http/`. |
 | `channels/discord/` | Data's Discord channel: a thin Gateway socket that forwards admitted mentions into `channels/http/`, deployed as the `data-discord` Zo service. |
 | `services/` | Durable records of the long-running processes that make Data reachable. |
 | `knowledge/` | Durable, verified knowledge: how a subsystem behaves, what a reproduction showed. |
@@ -36,9 +37,12 @@ A category directory is created when the first piece in that category lands.
   file reads, web search and browsing, conversation reads, and read-only views of
   hosting and settings. Data holds no write scope and no shell, so the read-only
   boundary is structural rather than a matter of instruction.
-- **Surface.** The `data-http` service in `channels/http/` routes questions into that
-  persona and returns the answer. `GET /health` reports readiness; `POST /ask` takes
-  `{ question, session? }`. The `data-discord` service in `channels/discord/` is the human
+- **Two surfaces, one brain.** The `data-http` service in `channels/http/` routes questions
+  into that persona and returns the answer: `GET /health` reports readiness, `POST /ask`
+  takes `{ question, session? }`. The `data-discord` service in `channels/discord/` holds
+  the Discord Gateway connection and forwards each admitted mention to `POST /ask` with a
+  `discord:<channel>` session, so Discord gets the same persona and the same continuity as
+  programmatic callers, and no second copy of Data's voice exists. The `data-discord` service in `channels/discord/` is the human
   front door: it holds the Gateway socket, and forwards each admitted mention to
   `POST /ask` with `session=discord:<channel>`, so both channels share one brain and one
   thread of memory.
