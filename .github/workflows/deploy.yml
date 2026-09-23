@@ -1,0 +1,60 @@
+name: deploy
+
+# Data deploys itself. This repository is the live checkout on the Zo host, so a
+# push to main only has to fast-forward that checkout and restart the http
+# service. scripts/zo-deploy.ts does both through Zo's MCP endpoint, speaking
+# JSON-RPC directly, then proves the restart landed by waiting for the service's
+# own readiness line in the service log.
+#
+# Needs the repository secret ZO_API_KEY: a Zo access token from
+# Settings > Advanced > Access Tokens. Without it the job warns and stops;
+# nothing is deployed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "channels/http/**"
+      - "lib/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-zo-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the deploy credential
+        id: credential
+        env:
+          ZO_API_KEY: ${{ secrets.ZO_API_KEY }}
+        run: |
+          if [ -z "${ZO_API_KEY}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ZO_API_KEY is not set, so nothing was deployed. Create a Zo access token (Settings > Advanced > Access Tokens) and save it as this repository's ZO_API_KEY secret."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.credential.outputs.configured == 'true'
+        with:
+          node-version: 24
+
+      - name: Deploy the live Zo service
+        if: steps.credential.outputs.configured == 'true'
+        env:
+          ZO_API_KEY: ${{ secrets.ZO_API_KEY }}
+        run: |
+          node --experimental-strip-types scripts/zo-deploy.ts \
+            --service data-http \
+            --dir /home/workspace/users/etok/workspaces/wazootech/repos/data \
+            --expect-sha "${GITHUB_SHA}"
