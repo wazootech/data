@@ -1,0 +1,10 @@
+{
+  "name": "data-http",
+  "private": true,
+  "type": "module",
+  "description": "Serves Data's HTTP surface and routes questions into Data's Zo persona.",
+  "scripts": {
+    "start": "node --experimental-strip-types index.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

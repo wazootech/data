@@ -1,0 +1,16 @@
+{
+  "name": "data",
+  "private": true,
+  "type": "module",
+  "description": "Data's house: its prompt, its knowledge, and the tooling that deploys its HTTP surface.",
+  "scripts": {
+    "deploy": "node --experimental-strip-types scripts/zo-deploy.ts",
+    "serve": "bun run channels/http/index.ts",
+    "test": "node --experimental-strip-types --test lib/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
