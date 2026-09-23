@@ -32,7 +32,7 @@ const DEFAULT_MCP_URL = "https://api.zo.computer/mcp";
 const DEFAULT_BRIDGE_DIRECTORY = "/home/workspace/users/etok/workspaces/wazootech/repos/data";
 const DEFAULT_BRANCH = "main";
 const DEFAULT_TIMEOUT_SECONDS = 90;
-const READY_MARKERS = ["ready: data-http"] as const;
+const READY_MARKERS = ["ready: data-http", "ready: data-discord"] as const;
 const POLL_INTERVAL_MS = 3_000;
 
 interface Options {
@@ -40,6 +40,7 @@ interface Options {
   readonly directory: string;
   readonly branch: string;
   readonly expectSha: string | null;
+  readonly expectReady: string | null;
   readonly timeoutSeconds: number;
   readonly dryRun: boolean;
   readonly apiKey: string;
@@ -61,6 +62,7 @@ function readOptions(): Options {
         `  --dir <path>        live checkout on the Zo host (default ${DEFAULT_BRIDGE_DIRECTORY})`,
         `  --branch <name>     branch to deploy (default ${DEFAULT_BRANCH})`,
         "  --expect-sha <sha>  revision this deploy must land on (usually the pushed commit)",
+        "  --expect-ready <s>  readiness line the service must log (default: any known channel)",
         `  --timeout <seconds> readiness deadline (default ${DEFAULT_TIMEOUT_SECONDS})`,
         "  --dry-run           resolve the service and report, restart nothing",
         "",
@@ -81,6 +83,7 @@ function readOptions(): Options {
     directory: option("dir") ?? DEFAULT_BRIDGE_DIRECTORY,
     branch: option("branch") ?? DEFAULT_BRANCH,
     expectSha: option("expect-sha") ?? null,
+    expectReady: option("expect-ready") ?? null,
     timeoutSeconds: Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_SECONDS,
     dryRun: process.argv.includes("--dry-run"),
     apiKey,
@@ -245,7 +248,8 @@ async function awaitReadiness(
     const status = parseZoServiceStatus(report.text, service.label);
     if (status !== null) {
       last = status;
-      const ready = READY_MARKERS.some((marker) => status.logs.includes(marker));
+      const markers = options.expectReady === null ? READY_MARKERS : [options.expectReady];
+      const ready = markers.some((marker) => status.logs.includes(marker));
       const restarted = status.uptimeSeconds === null || status.uptimeSeconds < options.timeoutSeconds;
       if (status.state === "RUNNING" && ready && restarted) return status;
     }

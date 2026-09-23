@@ -15,6 +15,7 @@ here is Data's conversations and memory: those belong to the runtime.
 | --- | --- |
 | `agent/instructions.md` | Data's prompt. The source of truth for who Data is; the live Zo persona is built from it. |
 | `channels/http/` | Data's live surface: `GET /health` and `POST /ask`, deployed as the `data-http` Zo service. |
+| `channels/discord/` | Data's Discord channel: a thin Gateway socket that forwards admitted mentions into `channels/http/`, deployed as the `data-discord` Zo service. |
 | `services/` | Durable records of the long-running processes that make Data reachable. |
 | `knowledge/` | Durable, verified knowledge: how a subsystem behaves, what a reproduction showed. |
 | `skills/` | Procedures Data follows for a recurring kind of investigation. |
@@ -37,7 +38,10 @@ A category directory is created when the first piece in that category lands.
   boundary is structural rather than a matter of instruction.
 - **Surface.** The `data-http` service in `channels/http/` routes questions into that
   persona and returns the answer. `GET /health` reports readiness; `POST /ask` takes
-  `{ question, session? }`.
+  `{ question, session? }`. The `data-discord` service in `channels/discord/` is the human
+  front door: it holds the Gateway socket, and forwards each admitted mention to
+  `POST /ask` with `session=discord:<channel>`, so both channels share one brain and one
+  thread of memory.
 - **Deploy.** Pushing to `main` runs `.github/workflows/deploy.yml`, which fast-forwards
   the live checkout on the Zo host and restarts the service through Zo's MCP endpoint,
   then waits for the service's own readiness line. This is the same shape as Goop's
