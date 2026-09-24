@@ -41,6 +41,7 @@ interface Options {
   readonly branch: string;
   readonly expectSha: string | null;
   readonly expectReady: string | null;
+  readonly waitingMarker: string | null;
   readonly timeoutSeconds: number;
   readonly dryRun: boolean;
   readonly apiKey: string;
@@ -64,6 +65,7 @@ function readOptions(): Options {
         "  --expect-sha <sha>  revision this deploy must land on (usually the pushed commit)",
         "  --expect-ready <s>  readiness line the service must log (default: any known channel)",
         `  --timeout <seconds> readiness deadline (default ${DEFAULT_TIMEOUT_SECONDS})`,
+        "  --waiting-marker <s>  accept a running service whose log names this\n                        external blocker even though it is not ready yet",
         "  --dry-run           resolve the service and report, restart nothing",
         "",
         "Environment: ZO_API_KEY (required), ZO_MCP_URL (optional).",
@@ -84,6 +86,7 @@ function readOptions(): Options {
     branch: option("branch") ?? DEFAULT_BRANCH,
     expectSha: option("expect-sha") ?? null,
     expectReady: option("expect-ready") ?? null,
+    waitingMarker: option("waiting-marker") ?? null,
     timeoutSeconds: Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_SECONDS,
     dryRun: process.argv.includes("--dry-run"),
     apiKey,
@@ -252,6 +255,17 @@ async function awaitReadiness(
       const ready = markers.some((marker) => status.logs.includes(marker));
       const restarted = status.uptimeSeconds === null || status.uptimeSeconds < options.timeoutSeconds;
       if (status.state === "RUNNING" && ready && restarted) return status;
+      if (
+        status.state === "RUNNING" &&
+        restarted &&
+        options.waitingMarker !== null &&
+        status.logs.includes(options.waitingMarker)
+      ) {
+        console.warn(
+          `::warning::${service.label} is running the new revision but is blocked on an external precondition: ${options.waitingMarker}`,
+        );
+        return status;
+      }
     }
     await delay(POLL_INTERVAL_MS);
   }

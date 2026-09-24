@@ -72,5 +72,6 @@ jobs:
           node --experimental-strip-types scripts/zo-deploy.ts \
             --service data-discord \
             --expect-ready "ready: data-discord" \
+            --waiting-marker "enable Message Content Intent" \
             --dir /home/workspace/users/etok/workspaces/wazootech/repos/data \
             --expect-sha "${GITHUB_SHA}"
