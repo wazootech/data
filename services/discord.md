@@ -6,7 +6,7 @@ to Data's own HTTP ingress, so the brain stays in one place.
 
 | Field | Value |
 | --- | --- |
-| Zo service ID | `svc_X1tR9cq2PLm` |
+| Zo service ID | `svc__FQ0NilRSiI` |
 | Label | `data-discord` |
 | Mode | `process` (no network endpoint) |
 | Entrypoint | `bun run ./index.ts` |
@@ -17,9 +17,11 @@ to Data's own HTTP ingress, so the brain stays in one place.
 
 ## Environment variable names
 
-`DATA_DISCORD_BOT_TOKEN`, `DATA_DISCORD_APPLICATION_ID`, `DATA_DISCORD_GUILD_IDS`,
-`DATA_DISCORD_ROLE_IDS`; optionally `DATA_DISCORD_OWNER_IDS`, `DATA_DISCORD_CHANNEL_IDS`,
-`DATA_DISCORD_HTTP_URL`, `DATA_HTTP_TOKEN`, `DATA_DISCORD_BOT_USER_ID`. Values are never
+`DATA_DISCORD_GUILD_IDS`, `DATA_DISCORD_ROLE_IDS`, `DATA_DISCORD_HTTP_URL` in the service
+definition; `DATA_DISCORD_BOT_TOKEN` and `DATA_DISCORD_APPLICATION_ID` come from
+`/root/.zo_secrets`. Optional: `DATA_DISCORD_OWNER_IDS`, `DATA_DISCORD_CHANNEL_IDS`,
+`DATA_HTTP_TOKEN`, `DATA_DISCORD_BOT_USER_ID`, `DATA_DISCORD_GATEWAY_URL`,
+`DATA_DISCORD_API_BASE`. Values are never
 recorded here, and the identifiers (guild, channel, role, owner, application, bot user)
 are deliberately absent from this public repository — they live in the service
 definition and in `/root/.zo_secrets`.
@@ -50,6 +52,10 @@ bun run ./index.ts
 
 ## Verification
 
+- 2026-09-23 — all four workspace checkouts clean; registered as `svc__FQ0NilRSiI` and started.
+  It connects, reads its secrets, and then reports `4014 (disallowed intent(s))` with the
+  exact fix, backing off 300s rather than hot-looping: the channel is deployed and waiting
+  on the Message Content toggle, which is the only thing that keeps it from answering.
 - 2026-09-23 — the mention → `data-http` → reply loop was proven against a stub Gateway,
   a stub Discord REST API, and a stub `data-http`: the bridge identified, read a mention
   from a role-holding author, asked the ingress with `session=discord:<channel>`, posted

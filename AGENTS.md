@@ -8,7 +8,10 @@ the runtime, not in this checkout.
 
 - `agent/instructions.md` — Data's prompt. The source of truth; the live Zo persona is
   built from it. Change it here first.
-- `channels/http/` — the `data-http` service: `GET /health`, `POST /ask`.
+- `channels/http/` — the `data-http` service: `GET /health`, `POST /ask`. Data's brain,
+  reached over HTTP.
+- `channels/discord/` — the `data-discord` service: a thin Gateway bridge that forwards an
+  admitted mention to `channels/http/`, so both surfaces share one brain.
 - `channels/discord/` — the `data-discord` service: a thin Gateway socket that forwards
   admitted mentions into `channels/http/`. It carries no prompt and calls no model; it is
   transport, so Data keeps one brain.
