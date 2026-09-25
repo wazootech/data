@@ -15,18 +15,24 @@ Data's live surface, and the only long-running process Data runs.
 
 ## Environment variable names
 
-`DATA_PERSONA_ID`, and optionally `DATA_HTTP_TOKEN`, `DATA_MODEL_NAME`,
-`ZO_API_BASE`, `PORT`. `ZO_CLIENT_IDENTITY_TOKEN` is read from `/root/.zo_secrets` when
-the process starts without it, because managed services do not inherit the host shell
-environment. Values are never recorded here.
+`DATA_BRAIN`, `DATA_LETTA_AGENT_ID`, and optionally `DATA_LETTA_BIN`,
+`DATA_LETTA_TIMEOUT_MS`, `DATA_HTTP_TOKEN`, `PORT`. The pre-migration path also uses
+`DATA_PERSONA_ID`, `DATA_MODEL_NAME`, and `ZO_API_BASE`; `ZO_CLIENT_IDENTITY_TOKEN` and
+`DATA_OPENROUTER_API_KEY` are read from `/root/.zo_secrets` when the process starts
+without them, because managed services do not inherit the host shell environment. Values
+are never recorded here.
 
 ## Recreation
 
 ```sh
 # register once, then let .github/workflows/deploy.yml keep it current
 # mode http, private, local port 8788, workdir as above
-DATA_PERSONA_ID=<persona id> bun run ./index.ts
+DATA_BRAIN=letta DATA_LETTA_AGENT_ID=<agent id> bun run ./index.ts
 ```
+
+The agent itself is not registered as a Zo service: the service spawns one `letta
+--backend local` child process per question, so there is no second long-running process
+to keep alive.
 
 ## Verification
 
@@ -34,3 +40,10 @@ DATA_PERSONA_ID=<persona id> bun run ./index.ts
   persona id, and `POST /ask` returned an answer citing `README.md` and `AGENTS.md` from
   this repository. Workdir was the development worktree at registration and was
   re-pointed to the live checkout in this repository once the change landed on `main`.
+- 2026-09-25 — repointed onto the self-hosted Letta agent (`DATA_BRAIN=letta`,
+  `DATA_LETTA_AGENT_ID=agent-local-777e7e52-1533-4d8a-ac04-d5646251edce`). Verified from
+  a shell before deploying: `GET /health` reported `brain: letta` with the agent id and
+  the resolved CLI path, `POST /ask` answered in Data's voice (identity seeded from
+  `agent/instructions.md` into the agent's memory), a second question on the same
+  `session` continued the conversation, and a question about this service answered from
+  `channels/http/index.ts` with a citation.

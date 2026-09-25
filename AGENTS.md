@@ -1,20 +1,20 @@
 # Data repository guide
 
 `wazootech/data` is Data's house: its prompt, its knowledge, its published artifacts,
-and the tooling that deploys its live surface. Data's conversations and memory live in
-the runtime, not in this checkout.
+and the tooling that deploys its live surface. Data's memory lives in the runtime, as a
+local git repository inside the self-hosted Letta agent's own checkout, not here.
 
 ## Layout
 
-- `agent/instructions.md` — Data's prompt. The source of truth; the live Zo persona is
-  built from it. Change it here first.
+- `agent/instructions.md` — Data's prompt, and the single source of truth for who Data
+  is. The agent's memory carries a copy at `system/persona.md`, seeded from this file;
+  change the prompt here first, then re-seed that copy.
+- The agent itself is a self-hosted Letta agent (Letta Code, `--backend local`) running
+  on the Zo host. `channels/http/` is the only process that talks to it.
 - `channels/http/` — the `data-http` service: `GET /health`, `POST /ask`. Data's brain,
   reached over HTTP.
 - `channels/discord/` — the `data-discord` service: a thin Gateway bridge that forwards an
   admitted mention to `channels/http/`, so both surfaces share one brain.
-- `channels/discord/` — the `data-discord` service: a thin Gateway socket that forwards
-  admitted mentions into `channels/http/`. It carries no prompt and calls no model; it is
-  transport, so Data keeps one brain.
 - `services/`, `automations/` — durable records of the processes and schedules that make
   Data operational. Records name environment variables, never their values.
 - `knowledge/`, `skills/` — durable knowledge and procedures.
@@ -26,8 +26,9 @@ the runtime, not in this checkout.
 
 - Anything that is not safe to publish. This repository is public: no credentials,
   tokens, internal channel identifiers, customer data, or unredacted logs.
-- A second copy of Data's prompt. If the persona and `agent/instructions.md` disagree,
-  that is a bug: the file is the source and the persona follows it.
+- A second copy of Data's prompt. If the agent's `system/persona.md` and
+  `agent/instructions.md` disagree, that is a bug: the file is the source and the agent's
+  memory follows it.
 
 ## Artifact rules
 
@@ -43,8 +44,10 @@ the runtime, not in this checkout.
 - Develop in a Git worktree; do not create branches or commit inside a sibling checkout.
 - Never commit credentials or `.env` files. Never create or delete repositories without
   human approval.
-- The service holds no write scope and no shell. Do not add one to the persona to work
-  around a missing capability; bring the capability into this repository instead.
+- Data does not write to a repository. That boundary is instructional, not structural:
+  the agent runs the Letta Code toolset, which includes file reads, search, and a shell.
+  Do not ask the agent to write, and do not widen its reach to work around a missing
+  capability — bring the capability into this repository instead.
 
 ## Agent self-improvement (friction-gated)
 
