@@ -2,8 +2,8 @@
 
 Data is Wazoo's developer-support agent. It answers questions about Wazoo's own
 tooling from repository source and documentation, verifies what it can, cites what
-it used, and hands verified findings to Computer instead of writing to a repository
-itself.
+it used, lands what it learned as a record in its own memory, and hands verified
+engineering findings to Computer instead of writing to a repository itself.
 
 This repository is Data's house. Its prompt lives here, its published artifacts live
 here, and the tooling that deploys its live surface lives here. What does not live
@@ -47,9 +47,16 @@ A category directory is created when the first piece in that category lands.
   `POST /ask` with `session=discord:<channel>`, so both channels share one brain and
   one thread of memory.
 - **Read-only by instruction.** The agent holds the Letta Code toolset — file reads,
-  search, web access, and a shell — so its read-only boundary against repositories is
-  a matter of its prompt and this repository's rules, not of the runtime. It answers
-  questions; it does not file, edit, merge, deploy, or change settings.
+  search, web access, a shell, and writes inside its own memory directory — so its
+  read-only boundary against repositories is a matter of its prompt and this
+  repository's rules, not of the runtime. It answers questions; it does not file, edit,
+  merge, deploy, or change settings.
+- **Memory.** The agent's memory is a git-backed directory of markdown on the Zo host
+  (`~/.letta/lc-local-backend/memfs/<agent-id>/memory`), seeded from `agent/instructions.md`
+  as `system/persona.md`. When an investigation leaves something durable and verified, the
+  agent writes the record with the repository, path, and line numbers it used and commits
+  it in the same turn, so it outlives the session. Published artifacts are a separate
+  thing: those land here through a pull request.
 - **Deploy.** Pushing to `main` runs `.github/workflows/deploy.yml`, which fast-forwards
   the live checkout on the Zo host and restarts each service through Zo's MCP endpoint,
   then waits for the service's own readiness line. This is the same shape as Goop's

@@ -1,8 +1,8 @@
 # Data repository guide
 
-`wazootech/data` is Data's house: its prompt, its knowledge, its published artifacts,
-and the tooling that deploys its live surface. Data's memory lives in the runtime, as a
-local git repository inside the self-hosted Letta agent's own checkout, not here.
+`wazootech/data` is Data's house: its prompt, its published artifacts, and the tooling
+that deploys its live surface. Data's memory lives in the runtime, as a git-backed
+directory of markdown inside the self-hosted Letta agent's own checkout, not here.
 
 ## Layout
 
@@ -44,10 +44,23 @@ local git repository inside the self-hosted Letta agent's own checkout, not here
 - Develop in a Git worktree; do not create branches or commit inside a sibling checkout.
 - Never commit credentials or `.env` files. Never create or delete repositories without
   human approval.
-- Data does not write to a repository. That boundary is instructional, not structural:
-  the agent runs the Letta Code toolset, which includes file reads, search, and a shell.
-  Do not ask the agent to write, and do not widen its reach to work around a missing
-  capability — bring the capability into this repository instead.
+- Data writes only to its own memory. That boundary is instructional, not structural: the
+  agent runs the Letta Code toolset — file reads, search, a shell, and writes inside its
+  memory directory — so it reads what it needs, commits its own records, and must not be
+  asked to write into a repository. Do not widen its reach to work around a missing
+  capability; bring the capability into this repository instead.
+
+## Memory records
+
+- Data's memory is the agent's own git-backed directory on the Zo host
+  (`~/.letta/lc-local-backend/memfs/<agent-id>/memory`), seeded from `agent/instructions.md`
+  as `system/persona.md`. The agent writes a record there and commits it itself, in the
+  turn that produced it; nothing in this repository has to run for a record to land.
+- `knowledge/`, `public/`, `demos/`, and `notes/` here are published artifacts, a
+  different thing from memory: they land through a pull request like any other change.
+- A record cites its source (repository, path, line numbers), separates what was verified
+  from what was assumed, and is safe to publish. A claim that failed verification is
+  recorded as failed rather than dropped.
 
 ## Agent self-improvement (friction-gated)
 
