@@ -48,6 +48,11 @@ to keep alive.
   `agent/instructions.md` into the agent's memory), a second question on the same
   `session` continued the conversation, and a question about this service answered from
   `channels/http/index.ts` with a citation.
+- 2026-09-25 — turn timeout raised to `420000` ms on the live service (`DATA_LETTA_TIMEOUT_MS`).
+  Measured the same day: `POST /ask` on a question that sends the agent through a tool loop took
+  4m26s and tripped the `180000` ms default (`letta -> exit null: timed out after 180000ms`), while
+  a two-sentence question about this service answered in 7.2s citing `channels/http/index.ts`.
+  The timeout bounds a turn, not the agent's willingness to investigate.
 - 2026-09-25 — Data's own Google key was wired in. With only `DATA_GEMINI_API_KEY` in
   `/root/.zo_secrets` and no canonical `GEMINI_API_KEY` in the environment, the service
   logged `provider: exported DATA_OPENROUTER_API_KEY as OPENROUTER_API_KEY,
