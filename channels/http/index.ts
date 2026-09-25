@@ -33,34 +33,37 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { missingSecrets, parseZoSecrets } from "../../lib/zo-secrets.ts";
 
 /**
  * Managed services start from a bare environment; Zo secrets live in
- * /root/.zo_secrets (sourced by interactive shells). Load it when the Zo token
- * is absent so the service behaves the same under supervisord and from a shell.
+ * /root/.zo_secrets (sourced by interactive shells). Load them so the service
+ * behaves the same under supervisord and from a shell.
+ *
+ * With no `names` this loads the whole file, but only when Zo did not inject its
+ * token — a service the platform started already carries
+ * `ZO_CLIENT_IDENTITY_TOKEN`, and skipping the file there would leave Data's own
+ * provider key unset. Naming the keys loads them either way; a value the process
+ * already has always wins.
  */
-function loadZoSecrets(): void {
-  if (process.env.ZO_CLIENT_IDENTITY_TOKEN) return;
+function loadZoSecrets(names?: readonly string[]): void {
+  if (names === undefined && process.env.ZO_CLIENT_IDENTITY_TOKEN) return;
   const file = "/root/.zo_secrets";
   if (!existsSync(file)) return;
-  let loaded = 0;
-  for (const raw of readFileSync(file, "utf8").split("\n")) {
-    const line = raw.trim();
-    if (!line.startsWith("export ")) continue;
-    const eq = line.indexOf("=");
-    if (eq < 0) continue;
-    const key = line.slice("export ".length, eq).trim();
-    let value = line.slice(eq + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    if (!key || process.env[key]) continue;
-    process.env[key] = value;
-    loaded++;
+  const missing = missingSecrets(parseZoSecrets(readFileSync(file, "utf8")), process.env, names);
+  for (const [key, value] of Object.entries(missing)) process.env[key] = value;
+  const loaded = Object.keys(missing).length;
+  if (loaded > 0) {
+    const scope = names === undefined ? "" : ` (${names.join(", ")})`;
+    console.log(new Date().toISOString(), `secrets: loaded ${loaded} var(s) from ${file}${scope}`);
   }
-  if (loaded > 0) console.log(new Date().toISOString(), `secrets: loaded ${loaded} var(s) from ${file}`);
 }
+
+/** Data's own provider key; read by name because the platform injects Zo's token. */
+const PROVIDER_SECRET_NAMES = ["DATA_OPENROUTER_API_KEY", "OPENROUTER_API_KEY"] as const;
+
 loadZoSecrets();
+loadZoSecrets(PROVIDER_SECRET_NAMES);
 
 /**
  * The Letta harness reads a provider key under its canonical name only: a
