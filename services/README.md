@@ -13,7 +13,7 @@ process the record was verified against.
 
 | Service | Mode | Purpose | File |
 | --- | --- | --- | --- |
-| `data-http` | `http` | Serves Data's HTTP surface: `GET /health` and `POST /ask`, routing questions into Data's Zo persona | `http-api.md` |
+| `data-http` | `http` | Serves Data's HTTP surface: `GET /health` and `POST /ask`, routing questions into Data's self-hosted Letta agent | `http-api.md` |
 
 ## Maintenance rules
 

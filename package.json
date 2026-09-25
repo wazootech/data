@@ -6,6 +6,7 @@
   "scripts": {
     "deploy": "node --experimental-strip-types scripts/zo-deploy.ts",
     "serve": "bun run channels/http/index.ts",
+    "sync-persona": "node --experimental-strip-types scripts/sync-persona.ts",
     "test": "node --experimental-strip-types --test lib/*.test.ts",
     "typecheck": "tsc --noEmit"
   },

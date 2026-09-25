@@ -7,10 +7,12 @@ Data's identity lives here.
   tooling, answering from repository source and documentation rather than memory,
   read-only against repositories, and publishing its guidance artifacts here.
 
-A Zo persona named **Data** carries this prompt as its live identity. The deploy
-step does not copy the prompt into a persona: the persona is edited in Zo, and this
-file is what a reader reads and what a rebuild starts from. When the two disagree,
-the persona is what is running and this file is what should be fixed.
+Data runs as a self-hosted Letta agent, whose memory is a local git repository of
+markdown. That memory carries a copy of this prompt at `system/persona.md`, seeded from
+`instructions.md` by `scripts/sync-persona.ts` (`npm run sync-persona`, `--dry-run` to
+compare without writing). Re-seed after every change here: the render is deterministic,
+so an unchanged prompt is a no-op and a changed one is one commit. When the two
+disagree, this file is the source and the agent's memory is what gets fixed.
 
 ## History
 

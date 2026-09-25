@@ -7,16 +7,15 @@ itself.
 
 This repository is Data's house. Its prompt lives here, its published artifacts live
 here, and the tooling that deploys its live surface lives here. What does not live
-here is Data's conversations and memory: those belong to the runtime.
+here is Data's conversations and memory: those belong to the agent in the runtime.
 
 ## What lives here
 
 | Path | Contents |
 | --- | --- |
-| `agent/instructions.md` | Data's prompt. The source of truth for who Data is; the live Zo persona is built from it. |
+| `agent/instructions.md` | Data's prompt. The source of truth for who Data is; the agent's memory carries a copy seeded from it. |
 | `channels/http/` | Data's brain over HTTP: `GET /health` and `POST /ask`, deployed as the `data-http` Zo service. |
-| `channels/discord/` | Data's Discord channel: a thin Gateway bridge, deployed as the `data-discord` Zo service, that forwards each admitted mention to `channels/http/`. |
-| `channels/discord/` | Data's Discord channel: a thin Gateway socket that forwards admitted mentions into `channels/http/`, deployed as the `data-discord` Zo service. |
+| `channels/discord/` | Data's Discord channel: a thin Gateway bridge that forwards each admitted mention to `channels/http/`, deployed as the `data-discord` Zo service. |
 | `services/` | Durable records of the long-running processes that make Data reachable. |
 | `knowledge/` | Durable, verified knowledge: how a subsystem behaves, what a reproduction showed. |
 | `skills/` | Procedures Data follows for a recurring kind of investigation. |
@@ -33,23 +32,36 @@ A category directory is created when the first piece in that category lands.
 
 ## How Data runs
 
-- **Identity.** A Zo persona, built from `agent/instructions.md`, scoped read-only:
-  file reads, web search and browsing, conversation reads, and read-only views of
-  hosting and settings. Data holds no write scope and no shell, so the read-only
-  boundary is structural rather than a matter of instruction.
-- **Two surfaces, one brain.** The `data-http` service in `channels/http/` routes questions
-  into that persona and returns the answer: `GET /health` reports readiness, `POST /ask`
-  takes `{ question, session? }`. The `data-discord` service in `channels/discord/` holds
-  the Discord Gateway connection and forwards each admitted mention to `POST /ask` with a
-  `discord:<channel>` session, so Discord gets the same persona and the same continuity as
-  programmatic callers, and no second copy of Data's voice exists. The `data-discord` service in `channels/discord/` is the human
-  front door: it holds the Gateway socket, and forwards each admitted mention to
-  `POST /ask` with `session=discord:<channel>`, so both channels share one brain and one
-  thread of memory.
+- **Identity.** A self-hosted Letta agent (Letta Code, `--backend local`) on the Zo
+  host, created 2026-09-25. Its identity is `agent/instructions.md`, seeded into the
+  agent's memory as `system/persona.md`, and its memory is a local git repository of
+  markdown that the agent reads at the start of a turn and commits to when it learns
+  something. Nothing about who Data is lives in this service.
+- **Two surfaces, one brain.** The `data-http` service in `channels/http/` turns a
+  question into one headless turn of that agent
+  (`letta --backend local --agent <id> -p <question> --output-format json`) and
+  returns the answer, reusing the `conversation_id` it gets back for the next
+  question on the same session: `GET /health` reports readiness, `POST /ask` takes
+  `{ question, session? }`. The `data-discord` service in `channels/discord/` is the
+  human front door: it holds the Gateway socket and forwards each admitted mention to
+  `POST /ask` with `session=discord:<channel>`, so both channels share one brain and
+  one thread of memory.
+- **Read-only by instruction.** The agent holds the Letta Code toolset — file reads,
+  search, web access, and a shell — so its read-only boundary against repositories is
+  a matter of its prompt and this repository's rules, not of the runtime. It answers
+  questions; it does not file, edit, merge, deploy, or change settings.
 - **Deploy.** Pushing to `main` runs `.github/workflows/deploy.yml`, which fast-forwards
-  the live checkout on the Zo host and restarts the service through Zo's MCP endpoint,
+  the live checkout on the Zo host and restarts each service through Zo's MCP endpoint,
   then waits for the service's own readiness line. This is the same shape as Goop's
   deploy, and it needs the repository secret `ZO_API_KEY`.
+
+## Rollback
+
+`DATA_BRAIN=zo` makes `data-http` answer from Data's Zo persona again, the path Data
+ran on before the migration. Both paths share the same question framing and session
+bookkeeping, and the persona is left in place until the new path has answered real
+questions for a while. The migration is tracked in
+[wazootech/data#9](https://github.com/wazootech/data/issues/9).
 
 ## Retired: the Agent File
 

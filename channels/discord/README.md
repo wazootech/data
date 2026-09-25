@@ -5,8 +5,8 @@ Data application, and routes an admitted `@Data` mention into Data's own HTTP in
 the same host.
 
 The bridge is a transport adapter, not a second brain. It normalizes the Discord event and
-hands it to `data-http` (`POST /ask`), which is where question routing, the persona, and
-session memory already live. That keeps one ingress shape and one place where Data's
+hands it to `data-http` (`POST /ask`), which is where question routing, Data's identity,
+and session memory already live. That keeps one ingress shape and one place where Data's
 identity is resolved, and it means the bridge needs no model credential of its own.
 
 ## What it admits
