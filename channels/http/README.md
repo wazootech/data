@@ -46,7 +46,7 @@ rather than concurrently.
 | `DATA_BRAIN` | `letta` (default) answers from the self-hosted agent; `zo` is the pre-migration persona path. |
 | `DATA_LETTA_AGENT_ID` | The agent to answer as. Defaults to Data's agent. |
 | `DATA_LETTA_BIN` | The Letta CLI. Defaults to `letta`, resolved against `PATH`. |
-| `DATA_LETTA_TIMEOUT_MS` | Turn timeout before the child process is killed. Defaults to `180000`. |
+| `DATA_LETTA_TIMEOUT_MS` | Turn timeout before the child process is killed. Defaults to `180000`; the live service sets `420000`, because a question that sends the agent through a long tool loop can take minutes while a simple one answers in seconds. |
 | `DATA_PERSONA_ID` | Persona id for the `DATA_BRAIN=zo` path only. |
 | `PORT` | Set by the Zo service. Defaults to `8788` from a shell. |
 | `DATA_HTTP_TOKEN` | Optional shared secret. When set, callers must send it as `x-data-token`. |
