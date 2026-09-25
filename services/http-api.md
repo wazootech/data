@@ -17,10 +17,11 @@ Data's live surface, and the only long-running process Data runs.
 
 `DATA_BRAIN`, `DATA_LETTA_AGENT_ID`, and optionally `DATA_LETTA_BIN`,
 `DATA_LETTA_TIMEOUT_MS`, `DATA_HTTP_TOKEN`, `PORT`. The pre-migration path also uses
-`DATA_PERSONA_ID`, `DATA_MODEL_NAME`, and `ZO_API_BASE`; `ZO_CLIENT_IDENTITY_TOKEN` and
-`DATA_OPENROUTER_API_KEY` are read from `/root/.zo_secrets` when the process starts
-without them, because managed services do not inherit the host shell environment. Values
-are never recorded here.
+`DATA_PERSONA_ID`, `DATA_MODEL_NAME`, and `ZO_API_BASE`; `ZO_CLIENT_IDENTITY_TOKEN`,
+`DATA_OPENROUTER_API_KEY`, and `DATA_GEMINI_API_KEY` are read from `/root/.zo_secrets` when
+the process starts without them, because managed services do not inherit the host shell
+environment. Each provider secret is copied onto its canonical name (`OPENROUTER_API_KEY`,
+`GEMINI_API_KEY`) so the Letta harness can see it. Values are never recorded here.
 
 ## Recreation
 
@@ -47,3 +48,12 @@ to keep alive.
   `agent/instructions.md` into the agent's memory), a second question on the same
   `session` continued the conversation, and a question about this service answered from
   `channels/http/index.ts` with a citation.
+- 2026-09-25 — Data's own Google key was wired in. With only `DATA_GEMINI_API_KEY` in
+  `/root/.zo_secrets` and no canonical `GEMINI_API_KEY` in the environment, the service
+  logged `provider: exported DATA_OPENROUTER_API_KEY as OPENROUTER_API_KEY,
+  DATA_GEMINI_API_KEY as GEMINI_API_KEY` at startup and `POST /ask` answered from the
+  `google/gemini-2.5-flash` handle now configured on the agent (a shell run against this
+  worktree, no other provider key set). The key is free-tier: `google/gemini-3.5-flash`
+  answered `429 RESOURCE_EXHAUSTED` — 5 requests/minute on
+  `generate_content_free_tier_requests` — so a per-model request cap, not the key, is the
+  ceiling. The OpenRouter handle it replaced was blocked by the free pool's daily cap.

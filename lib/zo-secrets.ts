@@ -51,3 +51,26 @@ export function missingSecrets(
   }
   return missing;
 }
+
+/**
+ * The Letta harness reads a provider key under its canonical name only, so a
+ * prefixed secret (`DATA_GEMINI_API_KEY`) is invisible to it and the turn fails
+ * with `Provider is not configured: google`. Copy each prefixed name onto its
+ * canonical name, unless the process already carries the canonical one.
+ */
+export const PROVIDER_ALIASES: readonly (readonly [string, string])[] = [
+  ["DATA_OPENROUTER_API_KEY", "OPENROUTER_API_KEY"],
+  ["DATA_GEMINI_API_KEY", "GEMINI_API_KEY"],
+];
+
+/** Applies `PROVIDER_ALIASES` in place, returning the `from as to` pairs it copied. */
+export function applyProviderAliases(env: NodeJS.ProcessEnv): string[] {
+  const applied: string[] = [];
+  for (const [from, to] of PROVIDER_ALIASES) {
+    if (env[to] || !env[from]) continue;
+    env[to] = env[from];
+    applied.push(`${from} as ${to}`);
+  }
+  return applied;
+}
+

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { missingSecrets, parseZoSecrets } from "./zo-secrets.ts";
+import { applyProviderAliases, missingSecrets, parseZoSecrets } from "./zo-secrets.ts";
 
 const FILE = [
   "# a comment",
@@ -40,5 +40,30 @@ describe("missingSecrets", () => {
   it("returns nothing when the named key is already set", () => {
     const env = { ZO_CLIENT_IDENTITY_TOKEN: "token", DATA_OPENROUTER_API_KEY: "injected" };
     assert.deepEqual(missingSecrets(parseZoSecrets(FILE), env, ["DATA_OPENROUTER_API_KEY"]), {});
+  });
+});
+
+describe("applyProviderAliases", () => {
+  it("copies each prefixed secret onto its canonical name", () => {
+    const env: NodeJS.ProcessEnv = {
+      DATA_OPENROUTER_API_KEY: "sk-or-v1-abc",
+      DATA_GEMINI_API_KEY: "goog-abc",
+    };
+    assert.deepEqual(applyProviderAliases(env), [
+      "DATA_OPENROUTER_API_KEY as OPENROUTER_API_KEY",
+      "DATA_GEMINI_API_KEY as GEMINI_API_KEY",
+    ]);
+    assert.equal(env.OPENROUTER_API_KEY, "sk-or-v1-abc");
+    assert.equal(env.GEMINI_API_KEY, "goog-abc");
+  });
+
+  it("never clobbers a canonical key the process already carries", () => {
+    const env: NodeJS.ProcessEnv = { DATA_GEMINI_API_KEY: "goog-abc", GEMINI_API_KEY: "injected" };
+    assert.deepEqual(applyProviderAliases(env), []);
+    assert.equal(env.GEMINI_API_KEY, "injected");
+  });
+
+  it("reports nothing when no prefixed key is set", () => {
+    assert.deepEqual(applyProviderAliases({}), []);
   });
 });

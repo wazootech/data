@@ -51,7 +51,7 @@ rather than concurrently.
 | `PORT` | Set by the Zo service. Defaults to `8788` from a shell. |
 | `DATA_HTTP_TOKEN` | Optional shared secret. When set, callers must send it as `x-data-token`. |
 | `DATA_MODEL_NAME` | Optional model override for the persona call. |
-| `OPENROUTER_API_KEY` | Optional. Exported from `DATA_OPENROUTER_API_KEY` when only that is set, because the Letta harness reads provider keys under their canonical names. |
+| `OPENROUTER_API_KEY`, `GEMINI_API_KEY` | Optional. Each is exported from its `DATA_`-prefixed secret (`DATA_OPENROUTER_API_KEY`, `DATA_GEMINI_API_KEY`) when only that is set, because the Letta harness reads provider keys under their canonical names. `openrouter/*` and `google/*` handles are the ones the local backend offers from these keys. |
 | `ZO_API_BASE`, `ZO_CLIENT_IDENTITY_TOKEN` | Zo API base and credential, for the `DATA_BRAIN=zo` path. |
 
 Secrets load from `/root/.zo_secrets` when the process starts without them, because

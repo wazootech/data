@@ -33,7 +33,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { missingSecrets, parseZoSecrets } from "../../lib/zo-secrets.ts";
+import { applyProviderAliases, missingSecrets, parseZoSecrets } from "../../lib/zo-secrets.ts";
 
 /**
  * Managed services start from a bare environment; Zo secrets live in
@@ -59,25 +59,22 @@ function loadZoSecrets(names?: readonly string[]): void {
   }
 }
 
-/** Data's own provider key; read by name because the platform injects Zo's token. */
-const PROVIDER_SECRET_NAMES = ["DATA_OPENROUTER_API_KEY", "OPENROUTER_API_KEY"] as const;
+/** Data's own provider keys; read by name because the platform injects Zo's token. */
+const PROVIDER_SECRET_NAMES = [
+  "DATA_OPENROUTER_API_KEY",
+  "OPENROUTER_API_KEY",
+  "DATA_GEMINI_API_KEY",
+  "GEMINI_API_KEY",
+] as const;
 
 loadZoSecrets();
 loadZoSecrets(PROVIDER_SECRET_NAMES);
 
-/**
- * The Letta harness reads a provider key under its canonical name only: a
- * prefixed secret (`DATA_OPENROUTER_API_KEY`) is invisible to it, and the turn
- * fails with `Provider is not configured: openrouter`. Export the alias so the
- * bulk load above is enough to make Data's own key usable.
- */
-function aliasProviderKeys(): void {
-  if (!process.env.OPENROUTER_API_KEY && process.env.DATA_OPENROUTER_API_KEY) {
-    process.env.OPENROUTER_API_KEY = process.env.DATA_OPENROUTER_API_KEY;
-    console.log(new Date().toISOString(), "provider: exported DATA_OPENROUTER_API_KEY as OPENROUTER_API_KEY");
-  }
+/** See `PROVIDER_ALIASES`: a prefixed secret must be copied onto its canonical name. */
+const aliased = applyProviderAliases(process.env);
+if (aliased.length > 0) {
+  console.log(new Date().toISOString(), `provider: exported ${aliased.join(", ")}`);
 }
-aliasProviderKeys();
 
 const APP_ROOT = dirname(fileURLToPath(import.meta.url));
 const STATE_DIR = join(APP_ROOT, "data");
