@@ -1,8 +1,8 @@
 # Service: data-discord
 
 Data's Discord channel: the thin socket that lets people in Discord talk to Data. It
-holds the Gateway connection as the Data application and forwards each admitted mention
-to Data's own HTTP ingress, so the brain stays in one place.
+holds the Gateway connection as the Data application and turns each admitted mention
+into a question for Data's Zo persona, so the brain stays in one place.
 
 | Field | Value |
 | --- | --- |
@@ -11,16 +11,16 @@ to Data's own HTTP ingress, so the brain stays in one place.
 | Mode | `process` (no network endpoint) |
 | Entrypoint | `bun run ./index.ts` |
 | Working directory | `/home/workspace/users/etok/workspaces/wazootech/repos/data/channels/discord` |
-| Forwards to | `http://127.0.0.1:8788/ask` (the `data-http` service) |
+| Asks | `POST https://api.zo.computer/zo/ask` with Data's `persona_id` |
 | Logs | `/dev/shm/data-discord.log`, `/dev/shm/data-discord_err.log` |
 | Source | `channels/discord/index.ts` in this repository |
 
 ## Environment variable names
 
-`DATA_DISCORD_GUILD_IDS`, `DATA_DISCORD_ROLE_IDS`, `DATA_DISCORD_HTTP_URL` in the service
+`DATA_DISCORD_GUILD_IDS` and `DATA_DISCORD_ROLE_IDS` in the service
 definition; `DATA_DISCORD_BOT_TOKEN` and `DATA_DISCORD_APPLICATION_ID` come from
 `/root/.zo_secrets`. Optional: `DATA_DISCORD_OWNER_IDS`, `DATA_DISCORD_CHANNEL_IDS`,
-`DATA_HTTP_TOKEN`, `DATA_DISCORD_BOT_USER_ID`, `DATA_DISCORD_GATEWAY_URL`,
+`DATA_PERSONA_ID` (defaults to Data's persona), `DATA_DISCORD_GATEWAY_URL`,
 `DATA_DISCORD_API_BASE`. Values are never
 recorded here, and the identifiers (guild, channel, role, owner, application, bot user)
 are deliberately absent from this public repository — they live in the service
@@ -60,3 +60,7 @@ bun run ./index.ts
   a stub Discord REST API, and a stub `data-http`: the bridge identified, read a mention
   from a role-holding author, asked the ingress with `session=discord:<channel>`, posted
   the answer back as a reply, and showed a typing indicator while it worked.
+- 2026-09-26 — the brain moved behind the bridge: it now asks Data's Zo persona directly
+  with `persona_id` set and remembers the returned `conversation_id` per channel, so
+  `data-http` is no longer in the path. `services/http-api.md` is archived at
+  `archives/letta-brain/services/http-api.md`.

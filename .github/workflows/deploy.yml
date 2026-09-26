@@ -1,13 +1,10 @@
 name: deploy
 
 # Data deploys itself. This repository is the live checkout on the Zo host, so a
-# push to main only has to fast-forward that checkout and restart each of Data's
-# services. scripts/zo-deploy.ts does both through Zo's MCP endpoint, speaking
-# JSON-RPC directly, then proves each restart landed by waiting for that
-# service's own readiness line in its log.
-#
-# The two services deploy in sequence, inside one job, on purpose: both fast-forward
-# the same live checkout, so they must never overlap.
+# push to main only has to fast-forward that checkout and restart Data's service.
+# scripts/zo-deploy.ts does both through Zo's MCP endpoint, speaking JSON-RPC
+# directly, then proves the restart landed by waiting for the service's own
+# readiness line in its log.
 #
 # Needs the repository secret ZO_API_KEY: a Zo access token from
 # Settings > Advanced > Access Tokens. Without it the job warns and stops;
@@ -17,7 +14,6 @@ on:
   push:
     branches: [main]
     paths:
-      - "channels/http/**"
       - "channels/discord/**"
       - "lib/**"
       - "scripts/**"
@@ -52,17 +48,6 @@ jobs:
         if: steps.credential.outputs.configured == 'true'
         with:
           node-version: 24
-
-      - name: Deploy data-http
-        if: steps.credential.outputs.configured == 'true'
-        env:
-          ZO_API_KEY: ${{ secrets.ZO_API_KEY }}
-        run: |
-          node --experimental-strip-types scripts/zo-deploy.ts \
-            --service data-http \
-            --expect-ready "ready: data-http" \
-            --dir /home/workspace/users/etok/workspaces/wazootech/repos/data \
-            --expect-sha "${GITHUB_SHA}"
 
       - name: Deploy data-discord
         if: steps.credential.outputs.configured == 'true'
