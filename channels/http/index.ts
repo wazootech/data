@@ -34,6 +34,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyProviderAliases, missingSecrets, parseZoSecrets } from "../../lib/zo-secrets.ts";
+import { isMissingConversation } from "../../lib/conversation-recovery.ts";
 
 /**
  * Managed services start from a bare environment; Zo secrets live in
@@ -120,6 +121,18 @@ function conversationFor(session: string | undefined): string | undefined {
 function rememberConversation(session: string | undefined, conversationId: string | undefined): void {
   if (session === undefined || conversationId === undefined) return;
   conversations = { ...conversations, [session]: { conversation_id: conversationId, updated_at: new Date().toISOString() } };
+  writeConversations();
+}
+
+/** Drops a session's mapping so the next turn starts a fresh conversation. */
+function forgetConversation(session: string | undefined): void {
+  if (session === undefined || conversations[session] === undefined) return;
+  delete conversations[session];
+  conversations = { ...conversations };
+  writeConversations();
+}
+
+function writeConversations(): void {
   try {
     writeFileSync(CONVERSATIONS_PATH, `${JSON.stringify(conversations, null, 2)}\n`);
   } catch (error) {
@@ -171,6 +184,20 @@ function serializeTurn<T>(task: () => Promise<T>): Promise<T> {
 
 type LettaTurn = { result: string; conversation_id?: string; is_error?: boolean };
 
+type LettaRun = { code: number | null; stdout: string; stderr: string };
+
+function runLettaTurn(
+  conversation: string | undefined,
+  question: string,
+  source: string | undefined,
+): Promise<LettaRun> {
+  const args = ["--backend", "local", "--output-format", "json"];
+  if (conversation === undefined) args.push("--agent", LETTA_AGENT_ID);
+  else args.push("--conversation", conversation);
+  args.push("-p", frameQuestion(question, source));
+  return runLetta(args);
+}
+
 function runLetta(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(LETTA_PATH ?? LETTA_BIN, args, { env: process.env, stdio: ["ignore", "pipe", "pipe"] });
@@ -218,12 +245,22 @@ async function askLetta(
     throw new Error(`no Letta CLI: ${LETTA_BIN} is not on PATH (set DATA_LETTA_BIN)`);
   }
   const existing = conversationFor(session);
-  const args = ["--backend", "local", "--output-format", "json"];
-  if (existing === undefined) args.push("--agent", LETTA_AGENT_ID);
-  else args.push("--conversation", existing);
-  args.push("-p", frameQuestion(question, source));
-
-  const { code, stdout, stderr } = await runLetta(args);
+  let turn = await runLettaTurn(existing, question, source);
+  let recovered = false;
+  if (
+    existing !== undefined &&
+    parseLettaResult(turn.stdout) === undefined &&
+    isMissingConversation(turn.stdout, turn.stderr)
+  ) {
+    console.error(
+      new Date().toISOString(),
+      `conversation ${existing} is gone; starting a fresh one for session ${session ?? "(none)"}`,
+    );
+    forgetConversation(session);
+    turn = await runLettaTurn(undefined, question, source);
+    recovered = true;
+  }
+  const { code, stdout, stderr } = turn;
   const parsed = parseLettaResult(stdout);
   if (parsed === undefined) {
     const detail = (stderr.trim() || stdout.trim()).slice(-300);
@@ -235,7 +272,14 @@ async function askLetta(
       : (stderr.trim() || stdout.trim()).slice(-300);
     throw new Error(`letta -> exit ${code}: ${detail}`);
   }
-  const conversationId = typeof parsed.conversation_id === "string" ? parsed.conversation_id : existing;
+  // `existing` is the id recovery just discarded, so a fresh turn whose JSON
+  // omits `conversation_id` must not restore it; the next turn starts over.
+  const conversationId =
+    typeof parsed.conversation_id === "string"
+      ? parsed.conversation_id
+      : recovered
+        ? undefined
+        : existing;
   rememberConversation(session, conversationId);
   const answer = typeof parsed.result === "string" ? parsed.result.trim() : JSON.stringify(parsed.result, null, 2);
   return { answer, conversationId };

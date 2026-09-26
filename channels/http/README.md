@@ -39,6 +39,21 @@ question of a session names the agent and later ones name the conversation.
 The local backend is a file-backed store, so turns are queued and run one at a time
 rather than concurrently.
 
+## A conversation the backend no longer has
+
+If the backend's conversation store is replaced — a reset, or state written by a
+different backend — the stored `conversation_id` stops resolving. The service
+detects the backend's `Conversation <id> not found` failure, drops the id, and
+re-runs the question as a fresh conversation: one extra turn instead of a session
+that fails forever. The dropped id is not written back, so the next question for
+that caller starts over cleanly.
+
+This covers a lost *conversation*, not a lost *agent*. A wiped or re-created
+backend loses the agent too, which surfaces as `Agent <id> not found` — a
+different shape the service does not retry, because the remedy is operator work:
+re-create the agent with `letta --backend local agents create`, then point
+`DATA_LETTA_AGENT_ID` at the new id.
+
 ## Environment
 
 | Variable | Purpose |
