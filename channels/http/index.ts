@@ -246,6 +246,7 @@ async function askLetta(
   }
   const existing = conversationFor(session);
   let turn = await runLettaTurn(existing, question, source);
+  let recovered = false;
   if (
     existing !== undefined &&
     parseLettaResult(turn.stdout) === undefined &&
@@ -257,6 +258,7 @@ async function askLetta(
     );
     forgetConversation(session);
     turn = await runLettaTurn(undefined, question, source);
+    recovered = true;
   }
   const { code, stdout, stderr } = turn;
   const parsed = parseLettaResult(stdout);
@@ -270,7 +272,14 @@ async function askLetta(
       : (stderr.trim() || stdout.trim()).slice(-300);
     throw new Error(`letta -> exit ${code}: ${detail}`);
   }
-  const conversationId = typeof parsed.conversation_id === "string" ? parsed.conversation_id : existing;
+  // `existing` is the id recovery just discarded, so a fresh turn whose JSON
+  // omits `conversation_id` must not restore it; the next turn starts over.
+  const conversationId =
+    typeof parsed.conversation_id === "string"
+      ? parsed.conversation_id
+      : recovered
+        ? undefined
+        : existing;
   rememberConversation(session, conversationId);
   const answer = typeof parsed.result === "string" ? parsed.result.trim() : JSON.stringify(parsed.result, null, 2);
   return { answer, conversationId };
