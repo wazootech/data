@@ -13,7 +13,11 @@ process the record was verified against.
 
 | Service | Mode | Purpose | File |
 | --- | --- | --- | --- |
-| `data-http` | `http` | Serves Data's HTTP surface: `GET /health` and `POST /ask`, routing questions into Data's self-hosted Letta agent | `http-api.md` |
+| `data-discord` | `process` | Holds the Gateway connection as the Data application and turns each admitted mention into a question for Data's Zo persona | `discord.md` |
+
+`data-http` ran from 2026-09-25 to 2026-09-26 and is retired. Its record is kept at
+`archives/letta-brain/services/http-api.md`, with the reason, alongside the rest of
+the Letta runtime that Data no longer runs.
 
 ## Maintenance rules
 
@@ -23,5 +27,6 @@ process the record was verified against.
   can be recreated exactly.
 - Note the observed process start time and log paths when a record is verified, and
   date the verification.
-- When a service is retired, keep its record and mark it retired rather than
-  deleting it.
+- When a service is retired, keep its record rather than deleting it, move it to
+  `archives/` with the reason and the verification date, and drop it from the
+  inventory above so the table only ever lists what Data runs now.
