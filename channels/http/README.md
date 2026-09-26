@@ -43,7 +43,7 @@ rather than concurrently.
 
 The agent's model is host state, not repository state: it lives with the agent in the
 local backend, so changing it changes the running brain. Data runs
-`openai-compatible/google/gemini-2.5-flash-lite`, a Vercel AI Gateway model reached
+`openai-compatible/openai/gpt-5-mini`, a Vercel AI Gateway model reached
 through an OpenAI-compatible provider registered at `https://ai-gateway.vercel.sh/v1`.
 That routes Data's inference through the account's existing AI credits instead of a
 separate provider key.
@@ -54,7 +54,7 @@ Register the provider once per host, then point the agent at a handle:
 letta --backend local connect openai-compatible \
   --base-url https://ai-gateway.vercel.sh/v1 \
   --api-key "$AI_GATEWAY_API_KEY"
-letta --backend local model set openai-compatible/google/gemini-2.5-flash-lite \
+letta --backend local model set openai-compatible/openai/gpt-5-mini \
   --agent <agent id>
 ```
 
@@ -67,6 +67,15 @@ speaks the Anthropic Messages API, where `max_tokens` is required, and its catal
 carry a context window but no max-output field, so every turn fails with
 `400 max_tokens: Invalid input: expected number, received null`. The `openai-compatible`
 route sets `max_tokens` itself (32000 for this model) and the same gateway key works.
+
+Which handle to pick is a real constraint, measured on 2026-09-26 rather than assumed.
+A free-tier gateway key exposes a small allowlist: `google/gemini-2.5-flash-lite` answered
+but 403s on several other models, and behind that allowance it allows only about 5
+requests per minute, which is slower than Data's own tool loop and would rate-limit under
+load. `openai/gpt-5-mini` is not on that allowlist's throttle and was verified doing the
+thing Data actually needs: a live `POST /ask` asking for a default and its line number
+answered with `channels/http/index.ts` line 90 and the correct `180_000`. Prefer a handle
+whose tool use has been checked this way over one chosen for price alone.
 
 ## A conversation the backend no longer has
 

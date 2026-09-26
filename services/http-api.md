@@ -68,7 +68,7 @@ to keep alive.
 - 2026-09-26 — Data moved onto the account's AI credits. The OpenRouter and Google
   free-tier keys were the point of failure: a 429 from either surfaced as a 502 out of
   `/ask`, and both had exhausted their caps. The agent now runs
-  `openai-compatible/google/gemini-2.5-flash-lite` through a Vercel AI Gateway provider
+  `openai-compatible/openai/gpt-5-mini` through a Vercel AI Gateway provider
   registered at `https://ai-gateway.vercel.sh/v1`. The local backend's own
   `vercel-ai-gateway/*` handles cannot be used for this: that provider speaks the
   Anthropic Messages API, which requires `max_tokens`, and its catalog entries carry no
@@ -80,3 +80,7 @@ to keep alive.
   answer. The provider credential is host-local
   (`~/.letta/lc-local-backend/providers/`), so no gateway key is needed in the service
   environment, and the turn is metered to the account's credits rather than a provider key.
+  Model choice was measured, not assumed: a free-tier gateway key 403s most models outside
+  a small allowlist, and `google/gemini-2.5-flash-lite` is throttled there to roughly 5
+  requests per minute — slower than one of Data's tool loops. `openai/gpt-5-mini` was
+  chosen after it answered a live source question with the right file and line.
