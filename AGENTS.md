@@ -1,20 +1,16 @@
 # Data repository guide
 
 `wazootech/data` is Data's house: its prompt, its published artifacts, and the tooling
-that deploys its live surface. Data's memory lives in the runtime, as a git-backed
-directory of markdown inside the self-hosted Letta agent's own checkout, not here.
+that deploys its live surface. Data has no runtime of its own — it is one Zo persona and
+one Discord bridge — so its conversations live in Zo and its durable output lives here.
 
 ## Layout
 
 - `agent/instructions.md` — Data's prompt, and the single source of truth for who Data
-  is. The agent's memory carries a copy at `system/persona.md`, seeded from this file;
-  change the prompt here first, then re-seed that copy.
-- The agent itself is a self-hosted Letta agent (Letta Code, `--backend local`) running
-  on the Zo host. `channels/http/` is the only process that talks to it.
-- `channels/http/` — the `data-http` service: `GET /health`, `POST /ask`. Data's brain,
-  reached over HTTP.
-- `channels/discord/` — the `data-discord` service: a thin Gateway bridge that forwards an
-  admitted mention to `channels/http/`, so both surfaces share one brain.
+  is. The Zo persona carries the live copy; change the prompt here first, then update the
+  persona.
+- `channels/discord/` — the `data-discord` service, and Data's only channel: a Gateway
+  bridge that turns an admitted mention into a question for that persona.
 - `services/`, `automations/` — durable records of the processes and schedules that make
   Data operational. Records name environment variables, never their values.
 - `knowledge/`, `skills/` — durable knowledge and procedures.
@@ -26,9 +22,8 @@ directory of markdown inside the self-hosted Letta agent's own checkout, not her
 
 - Anything that is not safe to publish. This repository is public: no credentials,
   tokens, internal channel identifiers, customer data, or unredacted logs.
-- A second copy of Data's prompt. If the agent's `system/persona.md` and
-  `agent/instructions.md` disagree, that is a bug: the file is the source and the agent's
-  memory follows it.
+- A second copy of Data's prompt. The persona holds a copy; when the two disagree, this
+  file is the source and the persona is what gets fixed.
 
 ## Artifact rules
 
@@ -44,29 +39,20 @@ directory of markdown inside the self-hosted Letta agent's own checkout, not her
 - Develop in a Git worktree; do not create branches or commit inside a sibling checkout.
 - Never commit credentials or `.env` files. Never create or delete repositories without
   human approval.
-- Data writes only to its own memory. That boundary is instructional, not structural: the
-  agent runs the Letta Code toolset — file reads, search, a shell, and writes inside its
-  memory directory — so it reads what it needs, commits its own records, and must not be
-  asked to write into a repository. Do not widen its reach to work around a missing
-  capability; bring the capability into this repository instead.
+- Data is read-only, and the runtime enforces it: the persona holds `files:read` plus
+  read-only web, hosting, and settings scopes. It cannot write anywhere, so a missing
+  capability is added to this repository, never worked around by widening the persona.
 
-## Memory records
+## Memory
 
-- Data's memory is the agent's own git-backed directory on the Zo host
-  (`~/.letta/lc-local-backend/memfs/<agent-id>/memory`), seeded from `agent/instructions.md`
-  as `system/persona.md`. The agent writes a record there and commits it itself, in the
-  turn that produced it; nothing in this repository has to run for a record to land.
-- Records live under `records/<topic>.md`, outside `system/`. Only `system/` loads on
-  every turn, and everything else is found by walking the tree and reading each file's
-  `description` frontmatter — so a record parked in `system/` is paid for on every future
-  turn, and a record without that frontmatter is unreachable by browsing.
-- The memory checkout has no git remote, so a commit outlives the session but not the
-  host: durability rests on the weekly local memory backup, not on git.
-- `knowledge/`, `public/`, `demos/`, and `notes/` here are published artifacts, a
-  different thing from memory: they land through a pull request like any other change.
-- A record cites its source (repository, path, line numbers), separates what was verified
-  from what was assumed, and is safe to publish. A claim that failed verification is
-  recorded as failed rather than dropped.
+- Data keeps no runtime memory. There is no per-session store to lose and nothing to
+  re-seed: a question asked in Discord is answered from the repositories it can read.
+- What an investigation settles and is worth keeping becomes a published artifact here —
+  `knowledge/`, `public/guides/`, `public/field-notes/` — landed through a pull request
+  like any other change.
+- A published piece cites its source (repository, path, line numbers), separates what was
+  verified from what was assumed, and is safe to publish. A claim that failed verification
+  is recorded as failed rather than dropped.
 
 ## Agent self-improvement (friction-gated)
 

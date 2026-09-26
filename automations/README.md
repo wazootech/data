@@ -19,5 +19,5 @@ Maintenance rules:
 
 ## Inventory
 
-None yet. Data's first live surface is the HTTP API in `channels/http/`, which is a
+None yet. Data's only runtime is the Discord bridge in `channels/discord/`, which is a
 service, not a schedule.

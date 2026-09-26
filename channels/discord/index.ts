@@ -3,13 +3,14 @@
  * Data's Discord channel.
  *
  * Holds one Gateway socket as the Data application and turns an admitted
- * mention into a question for Data's own HTTP surface, then posts the answer
- * back into the channel. The bridge owns transport only: admission, the reply
- * limit, and reconnects live here, while the persona, the conversation memory,
- * and the answer itself stay behind `POST /ask` on `channels/http`.
+ * mention into a question for Data's Zo persona, then posts the answer back
+ * into the channel. The bridge owns transport only: admission, the reply
+ * limit, the conversation id, and reconnects live here, while the persona, the
+ * model, and the answer itself stay in Zo.
  *
- * That division keeps Data's brain in one place. A second channel adds a way to
- * reach Data; it does not add a second way to think.
+ * Data has no runtime of its own, so this is the whole of it: one bot token and
+ * one persona id. A channel adds a way to reach Data; it does not add a second
+ * way to think.
  *
  * Admission is default-deny: the guild must be allowlisted, the author must not
  * be a bot, the message must mention the bot, and the author must hold an
@@ -19,7 +20,9 @@
  * mention's text readable at all. Discord closes an unsupported IDENTIFY with
  * 4014; the bridge reports the exact fix instead of hot-looping.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Managed services start from a bare environment; Zo secrets live in
 // /root/.zo_secrets (sourced by interactive shells). Load it when the bot token
@@ -64,8 +67,12 @@ function readIdList(name: string, fallback = ""): readonly string[] {
 loadZoSecrets();
 
 const BOT_TOKEN = readEnv("DATA_DISCORD_BOT_TOKEN");
-const HTTP_URL = readEnv("DATA_HTTP_URL", "http://127.0.0.1:8788").replace(/\/+$/u, "");
-const HTTP_TOKEN = readEnv("DATA_HTTP_TOKEN");
+const ZO_API = readEnv("DATA_ZO_API", "https://api.zo.computer").replace(/\/+$/u, "");
+// The bridge carries no model credential of its own: it asks Zo and Zo bills the
+// account. ZO_CLIENT_IDENTITY_TOKEN is injected by the host at service start.
+const ZO_TOKEN = (process.env.ZO_API_TOKEN ?? process.env.ZO_CLIENT_IDENTITY_TOKEN ?? "").trim();
+const PERSONA_ID = readEnv("DATA_PERSONA_ID", "64e4d78b-cf2a-43e9-839f-33b7e48af8e5");
+const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "data");
 const GUILD_IDS = readIdList("DATA_DISCORD_GUILD_IDS", "");
 const ROLE_IDS = readIdList("DATA_DISCORD_ROLE_IDS", "");
 const OWNER_IDS = readIdList("DATA_DISCORD_OWNER_IDS");
@@ -192,21 +199,66 @@ async function discordRequest(
   return (await response.json()) as unknown;
 }
 
+type ConversationState = Record<string, { conversation_id: string; updated_at: string }>;
+
+function readConversations(): ConversationState {
+  try {
+    return JSON.parse(readFileSync(join(DATA_DIR, "conversations.json"), "utf8")) as ConversationState;
+  } catch {
+    return {};
+  }
+}
+
+/** The conversation id Data is already having on this session, if any. */
+function conversationFor(session: string): string | undefined {
+  return readConversations()[session]?.conversation_id;
+}
+
+function rememberConversation(session: string, conversationId: string): void {
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+    const all = readConversations();
+    all[session] = { conversation_id: conversationId, updated_at: new Date().toISOString() };
+    writeFileSync(join(DATA_DIR, "conversations.json"), `${JSON.stringify(all, null, 2)}\n`, "utf8");
+  } catch (error) {
+    // Losing the id costs context on the next question; it must not cost the answer.
+    log(`could not persist the conversation id for ${session}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function askData(question: string, session: string): Promise<string> {
-  const response = await fetch(`${HTTP_URL}/ask`, {
+  const existing = conversationFor(session);
+  const response = await fetch(`${ZO_API}/zo/ask`, {
     method: "POST",
     headers: {
+      authorization: `Bearer ${ZO_TOKEN}`,
       "content-type": "application/json",
-      ...(HTTP_TOKEN.length === 0 ? {} : { "x-data-token": HTTP_TOKEN }),
+      accept: "application/json",
     },
-    body: JSON.stringify({ question, session }),
+    body: JSON.stringify({
+      input: question,
+      persona_id: PERSONA_ID,
+      ...(existing === undefined ? {} : { conversation_id: existing }),
+    }),
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`data http /ask -> ${String(response.status)} ${text.slice(0, 200)}`);
+    throw new Error(`zo/ask -> ${String(response.status)} ${text.slice(0, 200)}`);
   }
-  const parsed = JSON.parse(text) as { answer?: string };
-  return parsed.answer ?? "";
+  const parsed = JSON.parse(text) as { output?: unknown; conversation_id?: string; error?: string };
+  if (typeof parsed.error === "string" && parsed.error.length > 0) {
+    throw new Error(`zo/ask -> ${parsed.error}`);
+  }
+  const conversationId =
+    (typeof parsed.conversation_id === "string" ? parsed.conversation_id : undefined) ??
+    response.headers.get("x-conversation-id") ??
+    undefined;
+  if (conversationId !== undefined && conversationId.length > 0) {
+    rememberConversation(session, conversationId);
+  }
+  if (typeof parsed.output === "string") return parsed.output;
+  if (parsed.output === undefined || parsed.output === null) return "";
+  return JSON.stringify(parsed.output, null, 2);
 }
 
 function keepTyping(channelId: string): () => void {
@@ -289,6 +341,10 @@ export function run(): void {
   const Socket: SocketConstructor = discovered;
   if (BOT_TOKEN.length === 0) {
     log("DATA_DISCORD_BOT_TOKEN is unset; Data's Discord channel cannot start");
+    process.exit(1);
+  }
+  if (ZO_TOKEN.length === 0) {
+    log("no Zo token in the environment (ZO_API_TOKEN or ZO_CLIENT_IDENTITY_TOKEN); Data cannot reach its persona");
     process.exit(1);
   }
 
@@ -471,7 +527,7 @@ export function run(): void {
     });
   }
 
-  log(`bridge starting: route=${HTTP_URL}/ask guilds=[${GUILD_IDS.join(",")}] roles=[${ROLE_IDS.join(",")}]`);
+  log(`bridge starting: persona=${PERSONA_ID} via ${ZO_API} guilds=[${GUILD_IDS.join(",")}] roles=[${ROLE_IDS.join(",")}]`);
   connect();
 }
 

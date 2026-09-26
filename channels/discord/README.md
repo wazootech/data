@@ -1,13 +1,14 @@
 # data-discord
 
-Data's Discord channel. One process, no dependencies: it holds the Gateway socket as the
-Data application, and routes an admitted `@Data` mention into Data's own HTTP ingress on
-the same host.
+Data's Discord channel, and Data's only runtime. One process, no dependencies: it holds
+the Gateway socket as the Data application, and routes an admitted `@Data` mention into
+Data's Zo persona.
 
-The bridge is a transport adapter, not a second brain. It normalizes the Discord event and
-hands it to `data-http` (`POST /ask`), which is where question routing, Data's identity,
-and session memory already live. That keeps one ingress shape and one place where Data's
-identity is resolved, and it means the bridge needs no model credential of its own.
+The bridge is a transport adapter, not a brain. It normalizes the Discord event and hands
+it to `POST /zo/ask` with Data's persona id, then keeps the `conversation_id` Zo returns so
+the next mention on the same channel continues the same thread. The persona, the model,
+and the answer all live in Zo, which is why this process holds no model credential and
+Data has no service of its own to keep running.
 
 ## What it admits
 
@@ -38,14 +39,20 @@ file, edit, or merge anything.
 | `DATA_DISCORD_CHANNEL_IDS` | Optional channel allowlist. Empty means every channel in an admitted guild. |
 | `DATA_DISCORD_ROLE_IDS` | Comma-separated roles allowed to reach Data. |
 | `DATA_DISCORD_OWNER_IDS` | Comma-separated user ids always admitted. |
-| `DATA_HTTP_URL` | Data's ingress. Defaults to `http://127.0.0.1:8788`. |
-| `DATA_HTTP_TOKEN` | Shared secret sent as `x-data-token`. Set it here when the ingress has one. |
+| `DATA_PERSONA_ID` | Data's Zo persona. Defaults to the persona this repository documents. |
+| `DATA_ZO_API` | Zo API base override. Defaults to `https://api.zo.computer`. |
 | `DATA_DISCORD_GATEWAY_URL` | Gateway URL override. For tests, not for production. |
 | `DATA_DISCORD_API_BASE` | REST base override. For tests, not for production. |
 
-No Discord identifier is committed to this repository. They arrive through the service
-definition, and `DATA_DISCORD_BOT_TOKEN` additionally loads from `/root/.zo_secrets` when
-the process starts without it, because managed services do not inherit the host shell.
+`ZO_CLIENT_IDENTITY_TOKEN` (or `ZO_API_TOKEN`) authenticates the call to Zo and is
+provided by the host. The bot token additionally loads from `/root/.zo_secrets` when the
+process starts without it, because managed services do not inherit the host shell.
+No Discord identifier is committed to this repository: guild, role, channel, and owner ids
+arrive through the service definition.
+
+Conversation state lives in `data/conversations.json` beside this file, keyed by
+`discord:<channel>`; it is runtime state and is gitignored, so a lost file costs Data the
+thread continuity and nothing else.
 
 The application must have the **Message Content Intent** enabled, or Discord closes the
 connection with code 4014 and no mention text ever arrives. The bridge detects that close
