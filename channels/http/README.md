@@ -39,6 +39,35 @@ question of a session names the agent and later ones name the conversation.
 The local backend is a file-backed store, so turns are queued and run one at a time
 rather than concurrently.
 
+## Model and provider
+
+The agent's model is host state, not repository state: it lives with the agent in the
+local backend, so changing it changes the running brain. Data runs
+`openai-compatible/google/gemini-2.5-flash-lite`, a Vercel AI Gateway model reached
+through an OpenAI-compatible provider registered at `https://ai-gateway.vercel.sh/v1`.
+That routes Data's inference through the account's existing AI credits instead of a
+separate provider key.
+
+Register the provider once per host, then point the agent at a handle:
+
+```sh
+letta --backend local connect openai-compatible \
+  --base-url https://ai-gateway.vercel.sh/v1 \
+  --api-key "$AI_GATEWAY_API_KEY"
+letta --backend local model set openai-compatible/google/gemini-2.5-flash-lite \
+  --agent <agent id>
+```
+
+The credential is stored by the local backend under
+`~/.letta/lc-local-backend/providers/`, not read from this service's environment, so the
+service needs no gateway key of its own.
+
+Do not use the local backend's own `vercel-ai-gateway/*` handles for this. That provider
+speaks the Anthropic Messages API, where `max_tokens` is required, and its catalog entries
+carry a context window but no max-output field, so every turn fails with
+`400 max_tokens: Invalid input: expected number, received null`. The `openai-compatible`
+route sets `max_tokens` itself (32000 for this model) and the same gateway key works.
+
 ## A conversation the backend no longer has
 
 If the backend's conversation store is replaced — a reset, or state written by a

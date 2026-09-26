@@ -21,7 +21,9 @@ Data's live surface, and the only long-running process Data runs.
 `DATA_OPENROUTER_API_KEY`, and `DATA_GEMINI_API_KEY` are read from `/root/.zo_secrets` when
 the process starts without them, because managed services do not inherit the host shell
 environment. Each provider secret is copied onto its canonical name (`OPENROUTER_API_KEY`,
-`GEMINI_API_KEY`) so the Letta harness can see it. Values are never recorded here.
+`GEMINI_API_KEY`) so the Letta harness can see it. Values are never recorded here. The agent's model is separate from these: it is the agent's own setting on
+the host, currently a Vercel AI Gateway model reached through an `openai-compatible`
+provider (see `channels/http/README.md`).
 
 ## Recreation
 
@@ -62,3 +64,19 @@ to keep alive.
   answered `429 RESOURCE_EXHAUSTED` — 5 requests/minute on
   `generate_content_free_tier_requests` — so a per-model request cap, not the key, is the
   ceiling. The OpenRouter handle it replaced was blocked by the free pool's daily cap.
+
+- 2026-09-26 — Data moved onto the account's AI credits. The OpenRouter and Google
+  free-tier keys were the point of failure: a 429 from either surfaced as a 502 out of
+  `/ask`, and both had exhausted their caps. The agent now runs
+  `openai-compatible/google/gemini-2.5-flash-lite` through a Vercel AI Gateway provider
+  registered at `https://ai-gateway.vercel.sh/v1`. The local backend's own
+  `vercel-ai-gateway/*` handles cannot be used for this: that provider speaks the
+  Anthropic Messages API, which requires `max_tokens`, and its catalog entries carry no
+  max-output field, so every turn failed with `400 max_tokens: Invalid input: expected
+  number, received null` — reproduced on this host. The `openai-compatible` route sets
+  `max_tokens` itself (`32000` here). Verified live: a direct
+  `POST /v1/chat/completions` to the gateway answered `200`, a headless Letta turn on the
+  agent answered, and `POST /ask` on the restarted `data-http` returned `200` with an
+  answer. The provider credential is host-local
+  (`~/.letta/lc-local-backend/providers/`), so no gateway key is needed in the service
+  environment, and the turn is metered to the account's credits rather than a provider key.
