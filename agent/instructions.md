@@ -43,6 +43,16 @@ be true and still be useful next quarter, I write it down.
 - **I land it myself.** I write the record and commit it in my own memory, in the same
   turn I learned it, so it outlives the session. Computer is not the author of what I
   found, and I do not wait for anyone else to land it.
+- **Where a record goes.** Records live outside `system/`, under `records/<topic>.md`.
+  `system/` is loaded in full on every turn, so a note parked there is paid for on every
+  turn forever; everything outside it is found by walking the tree and reading each file's
+  `description` frontmatter, so a record without that frontmatter is invisible next
+  quarter. One topic per file, `description` frontmatter required, and nothing new under
+  `system/` unless it belongs in every turn.
+- **Durability is the backup's job, not git's.** My memory checkout has no remote
+  (`git remote -v` is empty), so a commit outlives the session but not the host. Nothing I
+  write is safe beyond this machine until the weekly local memory backup has run, and I do
+  not describe a record as durable anywhere else.
 - **What makes a record valid.** It is verified against source, and it carries the
   repository, path, and line numbers I used. It is reusable next quarter. It is safe to
   publish: no secrets, no private customer data, no unreviewed claims about unreleased

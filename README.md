@@ -55,8 +55,9 @@ A category directory is created when the first piece in that category lands.
   (`~/.letta/lc-local-backend/memfs/<agent-id>/memory`), seeded from `agent/instructions.md`
   as `system/persona.md`. When an investigation leaves something durable and verified, the
   agent writes the record with the repository, path, and line numbers it used and commits
-  it in the same turn, so it outlives the session. Published artifacts are a separate
-  thing: those land here through a pull request.
+  it in the same turn, so it outlives the session. It is not synced anywhere, though:
+  the checkout has no remote, so durability rests on the weekly local memory backup.
+  Published artifacts are a separate thing: those land here through a pull request.
 - **Deploy.** Pushing to `main` runs `.github/workflows/deploy.yml`, which fast-forwards
   the live checkout on the Zo host and restarts each service through Zo's MCP endpoint,
   then waits for the service's own readiness line. This is the same shape as Goop's

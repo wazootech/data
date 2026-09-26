@@ -56,6 +56,12 @@ directory of markdown inside the self-hosted Letta agent's own checkout, not her
   (`~/.letta/lc-local-backend/memfs/<agent-id>/memory`), seeded from `agent/instructions.md`
   as `system/persona.md`. The agent writes a record there and commits it itself, in the
   turn that produced it; nothing in this repository has to run for a record to land.
+- Records live under `records/<topic>.md`, outside `system/`. Only `system/` loads on
+  every turn, and everything else is found by walking the tree and reading each file's
+  `description` frontmatter — so a record parked in `system/` is paid for on every future
+  turn, and a record without that frontmatter is unreachable by browsing.
+- The memory checkout has no git remote, so a commit outlives the session but not the
+  host: durability rests on the weekly local memory backup, not on git.
 - `knowledge/`, `public/`, `demos/`, and `notes/` here are published artifacts, a
   different thing from memory: they land through a pull request like any other change.
 - A record cites its source (repository, path, line numbers), separates what was verified
