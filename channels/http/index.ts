@@ -35,6 +35,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyProviderAliases, missingSecrets, parseZoSecrets } from "../../lib/zo-secrets.ts";
 import { isMissingConversation } from "../../lib/conversation-recovery.ts";
+import {
+  MAX_RETRY_DELAY_MS,
+  isRetryableProviderFailure,
+  planRetryDelayMs,
+  providerRetryDelayMs,
+} from "../../lib/provider-retry.ts";
 
 /**
  * Managed services start from a bare environment; Zo secrets live in
@@ -88,6 +94,17 @@ const BRAIN = (process.env.DATA_BRAIN ?? "letta").trim().toLowerCase();
 /** The Letta CLI. Resolved against PATH so it works under a bare supervisor env. */
 const LETTA_BIN = (process.env.DATA_LETTA_BIN ?? "letta").trim();
 const LETTA_TIMEOUT_MS = Number(process.env.DATA_LETTA_TIMEOUT_MS ?? 180_000);
+
+/**
+ * A rate-limited turn is retried in place: the provider never ran it, so
+ * nothing was written to memory or to the conversation. The budget is the wait
+ * plus room for the retry itself, so retries cannot overrun the turn timeout.
+ */
+const PROVIDER_RETRY_ATTEMPTS = Number(process.env.DATA_PROVIDER_RETRY_ATTEMPTS ?? 2);
+const PROVIDER_RETRY_CAP_MS = Number(process.env.DATA_PROVIDER_RETRY_CAP_MS ?? MAX_RETRY_DELAY_MS);
+// Room the retry itself needs; never more than a quarter of the turn budget, so
+// a shortened DATA_LETTA_TIMEOUT_MS still retries instead of refusing to.
+const MIN_TURN_BUDGET_MS = Math.min(30_000, Math.floor(LETTA_TIMEOUT_MS / 4));
 
 /** Data's self-hosted agent, created on 2026-09-25; see wazootech/data#9. */
 const LETTA_AGENT_ID = (
@@ -186,6 +203,16 @@ type LettaTurn = { result: string; conversation_id?: string; is_error?: boolean 
 
 type LettaRun = { code: number | null; stdout: string; stderr: string };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** A turn that produced no usable answer, whatever the reason. */
+function turnFailed(turn: LettaRun): boolean {
+  const parsed = parseLettaResult(turn.stdout);
+  return parsed === undefined || parsed.is_error === true || (turn.code ?? 0) !== 0;
+}
+
 function runLettaTurn(
   conversation: string | undefined,
   question: string,
@@ -259,6 +286,32 @@ async function askLetta(
     forgetConversation(session);
     turn = await runLettaTurn(undefined, question, source);
     recovered = true;
+  }
+
+  // A rate-limited turn never reached the model, so nothing was written to the
+  // conversation or to memory and the same question can be asked again. The
+  // budget check keeps a retry from pushing the turn past its own timeout.
+  const turnStartedAt = Date.now();
+  for (let attempt = 0; attempt < PROVIDER_RETRY_ATTEMPTS; attempt += 1) {
+    if (!turnFailed(turn) || !isRetryableProviderFailure(turn.stdout, turn.stderr)) break;
+    const delay = planRetryDelayMs(
+      attempt,
+      providerRetryDelayMs(turn.stdout, turn.stderr),
+      PROVIDER_RETRY_CAP_MS,
+    );
+    if (Date.now() - turnStartedAt + delay + MIN_TURN_BUDGET_MS > LETTA_TIMEOUT_MS) {
+      console.error(
+        new Date().toISOString(),
+        `provider rate-limited the turn and waiting ${delay}ms would overrun the turn budget; not retrying`,
+      );
+      break;
+    }
+    console.error(
+      new Date().toISOString(),
+      `provider rate-limited the turn; retrying in ${delay}ms (attempt ${attempt + 1}/${PROVIDER_RETRY_ATTEMPTS})`,
+    );
+    await sleep(delay);
+    turn = await runLettaTurn(recovered ? undefined : existing, question, source);
   }
   const { code, stdout, stderr } = turn;
   const parsed = parseLettaResult(stdout);
