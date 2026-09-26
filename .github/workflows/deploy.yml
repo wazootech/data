@@ -9,6 +9,12 @@ name: deploy
 # The two services deploy in sequence, inside one job, on purpose: both fast-forward
 # the same live checkout, so they must never overlap.
 #
+# Data's prompt is `agent/instructions.md`, but the agent answers from the copy its
+# memory holds at `system/persona.md`. `npm run sync-persona` is what reconciles the
+# two, so the `agent/**` path is watched and the data-http step runs the sync on the
+# host after the fast-forward and before the restart. Without both halves a
+# prompt-only merge changes nothing the agent can see (see #16).
+#
 # Needs the repository secret ZO_API_KEY: a Zo access token from
 # Settings > Advanced > Access Tokens. Without it the job warns and stops;
 # nothing is deployed.
@@ -17,6 +23,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "agent/**"
       - "channels/http/**"
       - "channels/discord/**"
       - "lib/**"
@@ -61,6 +68,7 @@ jobs:
           node --experimental-strip-types scripts/zo-deploy.ts \
             --service data-http \
             --expect-ready "ready: data-http" \
+            --run "npm run sync-persona" \
             --dir /home/workspace/users/etok/workspaces/wazootech/repos/data \
             --expect-sha "${GITHUB_SHA}"
 

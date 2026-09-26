@@ -7,8 +7,10 @@ directory of markdown inside the self-hosted Letta agent's own checkout, not her
 ## Layout
 
 - `agent/instructions.md` — Data's prompt, and the single source of truth for who Data
-  is. The agent's memory carries a copy at `system/persona.md`, seeded from this file;
-  change the prompt here first, then re-seed that copy.
+  is. The agent's memory carries a copy at `system/persona.md`, seeded from this file by
+  `npm run sync-persona`. A merge that touches `agent/**` runs that sync on the host in
+  the deploy job, before the services restart, so the prompt and the copy stay in step
+  without anyone remembering to re-seed by hand (see #16).
 - The agent itself is a self-hosted Letta agent (Letta Code, `--backend local`) running
   on the Zo host. `channels/http/` is the only process that talks to it.
 - `channels/http/` — the `data-http` service: `GET /health`, `POST /ask`. Data's brain,

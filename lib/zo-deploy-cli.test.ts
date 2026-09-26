@@ -32,12 +32,14 @@ interface FakeZo {
   readonly calls: string[];
   readonly requests: readonly { readonly method: string; readonly sessionHeader: string | undefined }[];
   readonly restarts: string[];
+  readonly runs: string[];
   readonly urls: string;
   readonly close: () => Promise<void>;
   /** Doctor reads the restart flag, so readiness only appears after a restart. */
   readonly markRestarted: () => void;
   readonly setDoctor: (report: string) => void;
   readonly setPullReturncode: (code: number) => void;
+  readonly setRunReturncode: (code: number) => void;
 }
 
 function jsonRpc(response: ServerResponse, id: unknown, result: unknown, options: { readonly sse?: boolean } = {}): void {
@@ -56,6 +58,8 @@ async function startFakeZo(): Promise<FakeZo> {
     calls: [] as string[],
     requests: [] as { method: string; sessionHeader: string | undefined }[],
     restarts: [] as string[],
+    runs: [] as string[],
+    runReturncode: 0,
     pullReturncode: 0,
     restarted: false,
     doctor: doctorReport({ logs: "data-http starting", state: "RUNNING", uptime: 600 }),
@@ -106,6 +110,15 @@ async function startFakeZo(): Promise<FakeZo> {
           jsonRpc(response, message.id, { content: [{ type: "text", text }] });
           return;
         }
+        if (cmd.includes("sync-persona")) {
+          state.runs.push(cmd);
+          const sync =
+            state.runReturncode === 0
+              ? "CmdResult(stdout='system/persona.md already matches agent/instructions.md\\n', stderr='', returncode=0)"
+              : "CmdResult(stdout='', stderr='no Letta memory checkout at /root/.letta\\n', returncode=1)";
+          jsonRpc(response, message.id, { content: [{ type: "text", text: sync }] });
+          return;
+        }
         jsonRpc(response, message.id, { content: [{ type: "text", text: `CmdResult(stdout='${HEAD_SHA}\\n', stderr='', returncode=0)` }] });
         return;
       }
@@ -135,6 +148,7 @@ async function startFakeZo(): Promise<FakeZo> {
     calls: state.calls,
     requests: state.requests,
     restarts: state.restarts,
+    runs: state.runs,
     urls: `http://127.0.0.1:${String(address !== null && typeof address === "object" ? address.port : 0)}/mcp`,
     close: () =>
       new Promise<void>((resolveClose) => {
@@ -150,6 +164,9 @@ async function startFakeZo(): Promise<FakeZo> {
     },
     setPullReturncode: (code: number) => {
       state.pullReturncode = code;
+    },
+    setRunReturncode: (code: number) => {
+      state.runReturncode = code;
     },
   };
 }
@@ -247,6 +264,38 @@ describe("zo deploy script", () => {
     assert.equal(run.status, 1);
     assert.match(run.stderr, /did not report a ready service/u);
     assert.match(run.stderr, /FATAL/u);
+  });
+
+  it("runs --run in the deployed checkout after the fast-forward, before the restart", async () => {
+    fake.restarts.length = 0;
+    fake.runs.length = 0;
+    fake.markRestarted();
+    const run = await runDeploy(fake, ["--run", "npm run sync-persona"]);
+    assert.equal(run.status, 0, run.stderr);
+    assert.deepEqual(fake.runs, ['cd "/home/workspace/live-checkout" && npm run sync-persona']);
+    assert.match(run.stdout, /already matches agent\/instructions\.md/u);
+    assert.ok(
+      fake.calls.lastIndexOf("bash") < fake.calls.lastIndexOf("update_user_service"),
+      `expected the run before the restart: ${fake.calls.join(", ")}`,
+    );
+    assert.deepEqual(fake.restarts, ["svc_datahttp123"]);
+  });
+
+  it("leaves the running service untouched when --run fails", async () => {
+    fake.restarts.length = 0;
+    fake.setRunReturncode(1);
+    const run = await runDeploy(fake, ["--run", "npm run sync-persona"]);
+    fake.setRunReturncode(0);
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, /--run failed/u);
+    assert.deepEqual(fake.restarts, []);
+  });
+
+  it("does not run --run on a dry run", async () => {
+    fake.runs.length = 0;
+    const run = await runDeploy(fake, ["--run", "npm run sync-persona", "--dry-run"]);
+    assert.equal(run.status, 0, run.stderr);
+    assert.deepEqual(fake.runs, []);
   });
 
   it("resolves everything and restarts nothing on a dry run", async () => {

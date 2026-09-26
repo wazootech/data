@@ -15,7 +15,7 @@
  *   ZO_API_KEY=... node --experimental-strip-types scripts/zo-deploy.ts \
  *     --service data-http --dir <checkout-on-the-zo-host>
  *
- * Flags: --service, --dir, --branch, --expect-sha, --timeout, --dry-run, --help.
+ * Flags: --service, --dir, --branch, --expect-sha, --run, --timeout, --dry-run, --help.
  * Exit code 0 means the live service is running the requested revision.
  */
 import {
@@ -41,6 +41,7 @@ interface Options {
   readonly branch: string;
   readonly expectSha: string | null;
   readonly expectReady: string | null;
+  readonly run: string | null;
   readonly waitingMarker: string | null;
   readonly timeoutSeconds: number;
   readonly dryRun: boolean;
@@ -64,6 +65,8 @@ function readOptions(): Options {
         `  --branch <name>     branch to deploy (default ${DEFAULT_BRANCH})`,
         "  --expect-sha <sha>  revision this deploy must land on (usually the pushed commit)",
         "  --expect-ready <s>  readiness line the service must log (default: any known channel)",
+        "  --run <command>     command to run in the deployed checkout after the fast-forward",
+        "                      and before the restart (e.g. \"npm run sync-persona\")",
         `  --timeout <seconds> readiness deadline (default ${DEFAULT_TIMEOUT_SECONDS})`,
         "  --waiting-marker <s>  accept a running service whose log names this\n                        external blocker even though it is not ready yet",
         "  --dry-run           resolve the service and report, restart nothing",
@@ -86,6 +89,7 @@ function readOptions(): Options {
     branch: option("branch") ?? DEFAULT_BRANCH,
     expectSha: option("expect-sha") ?? null,
     expectReady: option("expect-ready") ?? null,
+    run: option("run") ?? null,
     waitingMarker: option("waiting-marker") ?? null,
     timeoutSeconds: Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_SECONDS,
     dryRun: process.argv.includes("--dry-run"),
@@ -305,6 +309,17 @@ async function main(): Promise<void> {
   if (options.dryRun) {
     console.log("\ndry run: skipping the restart");
     return;
+  }
+
+  if (options.run !== null) {
+    step(`run in ${options.directory}: ${options.run}`);
+    const ran = await runCommand(zo, `cd "${options.directory}" && ${options.run}`);
+    if (ran.stdout.trim().length > 0) console.log(ran.stdout.trim());
+    if (ran.returncode !== 0) {
+      throw new Error(
+        `--run failed; the running service was left untouched: ${ran.stderr.trim() || ran.stdout.trim()}`,
+      );
+    }
   }
 
   step(`restart ${service.serviceId}`);
