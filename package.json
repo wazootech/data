@@ -5,7 +5,7 @@
   "description": "Data's house: its prompt, its knowledge, and the tooling that deploys its HTTP surface.",
   "scripts": {
     "deploy": "node --experimental-strip-types scripts/zo-deploy.ts",
-    "test": "node --experimental-strip-types --test lib/*.test.ts",
+    "test": "node --experimental-strip-types --test lib/*.test.ts archives/*/lib/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

@@ -10,5 +10,5 @@
     "target": "ES2023",
     "types": ["node"]
   },
-  "include": ["channels/**/*.ts", "lib/**/*.ts", "scripts/**/*.ts"]
+  "include": ["archives/**/*.ts", "channels/**/*.ts", "lib/**/*.ts", "scripts/**/*.ts"]
 }
