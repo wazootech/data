@@ -20,6 +20,7 @@
  * 4014; the bridge reports the exact fix instead of hot-looping.
  */
 import { existsSync, readFileSync } from "node:fs";
+import { LOCAL_CLOSE, describeClose } from "../../lib/discord-gateway.ts";
 
 // Managed services start from a bare environment; Zo secrets live in
 // /root/.zo_secrets (sourced by interactive shells). Load it when the bot token
@@ -295,6 +296,8 @@ export function run(): void {
   let sessionId: string | null = null;
   let sequence: number | null = null;
   let gatewayUrl = GATEWAY_URL;
+  /** True between a RESUME and its outcome, so a rejected resume is never silent. */
+  let resumePending = false;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
   let acked = true;
   let attempts = 0;
@@ -329,7 +332,7 @@ export function run(): void {
     heartbeat = setInterval(() => {
       if (!acked) {
         stopHeartbeat();
-        socket.close(4000, "heartbeat not acknowledged");
+        socket.close(LOCAL_CLOSE.heartbeatUnacknowledged, "local: heartbeat not acknowledged");
         return;
       }
       acked = false;
@@ -341,7 +344,14 @@ export function run(): void {
     const socket = new Socket(gatewayUrl);
 
     socket.onopen = () => {
-      log(`gateway socket open (${gatewayUrl === GATEWAY_URL ? "fresh" : "resume"})`);
+      // Label the decision, not the URL. After the first READY the resume URL is in
+      // use even when the socket is about to identify fresh, so the old label read
+      // "(resume)" for connections that were never resuming (wazootech/data#15).
+      log(
+        sessionId === null
+          ? "gateway socket open (fresh identify)"
+          : `gateway socket open (resume from seq ${String(sequence)})`,
+      );
     };
 
     socket.onmessage = (event) => {
@@ -356,8 +366,13 @@ export function run(): void {
       if (frame.op === OP.hello) {
         const payload = frame.d as { heartbeat_interval?: number } | null;
         const interval = payload?.heartbeat_interval ?? 41_250;
-        if (sessionId === null) identify(socket);
-        else send(socket, OP.resume, { token: BOT_TOKEN, session_id: sessionId, seq: sequence });
+        if (sessionId === null) {
+          identify(socket);
+        } else {
+          resumePending = true;
+          log(`resuming session ${sessionId} at seq ${String(sequence)}`);
+          send(socket, OP.resume, { token: BOT_TOKEN, session_id: sessionId, seq: sequence });
+        }
         startHeartbeat(socket, interval);
         return;
       }
@@ -371,24 +386,34 @@ export function run(): void {
       }
       if (frame.op === OP.reconnect) {
         stopHeartbeat();
-        socket.close(4001, "gateway asked for a reconnect");
+        socket.close(LOCAL_CLOSE.reconnectRequested, "local: reconnect requested");
         return;
       }
       if (frame.op === OP.invalidSession) {
         const resumable = frame.d === true;
+        log(
+          `session invalidated by Discord (op 9, resumable=${String(resumable)})${resumePending ? ", in reply to our resume" : ""}`,
+        );
+        resumePending = false;
         if (!resumable) {
           sessionId = null;
           sequence = null;
           gatewayUrl = GATEWAY_URL;
         }
         stopHeartbeat();
-        socket.close(4002, "invalid session");
+        socket.close(LOCAL_CLOSE.invalidSession, "local: invalid session");
         return;
       }
       if (frame.op !== OP.dispatch) return;
 
       if (frame.t === "READY") {
         const payload = frame.d as ReadyPayload | null;
+        if (resumePending) {
+          log(
+            "the resume was rejected: Discord answered READY instead of RESUMED, so the session was dropped and a fresh one is identifying",
+          );
+        }
+        resumePending = false;
         sessionId = payload?.session_id ?? null;
         if (typeof payload?.resume_gateway_url === "string") gatewayUrl = payload.resume_gateway_url;
         BOT_USER_ID = payload?.user?.id ?? BOT_USER_ID;
@@ -405,6 +430,7 @@ export function run(): void {
       }
       if (frame.t === "RESUMED") {
         attempts = 0;
+        resumePending = false;
         log("session resumed");
         return;
       }
@@ -424,31 +450,32 @@ export function run(): void {
 
     socket.onclose = (event) => {
       stopHeartbeat();
+      resumePending = false;
       const code = event.code;
-      const reason = event.reason.length > 0 ? ` (${event.reason})` : "";
+      const described = describeClose(code, event.reason);
       if (code === 4014) {
         log(
           "gateway refused the connection with 4014 (disallowed intents): enable Message Content Intent for the Data application (Discord Developer Portal -> Data -> Bot -> Privileged Gateway Intents), then this process connects on its next attempt.",
         );
-        reconnect(DISALLOWED_INTENTS_DELAY_MS, `4014${reason}`);
+        reconnect(DISALLOWED_INTENTS_DELAY_MS, described);
         return;
       }
       if (code === 4004) {
         log("gateway refused the connection with 4004 (authentication failed): DATA_DISCORD_BOT_TOKEN is wrong or rotated");
-        reconnect(MAX_BACKOFF_MS, `4004${reason}`);
+        reconnect(MAX_BACKOFF_MS, described);
         return;
       }
       if (code === 4013) {
         log("gateway refused the connection with 4013 (invalid intents): the requested intent bits are not valid for this application");
-        reconnect(MAX_BACKOFF_MS, `4013${reason}`);
+        reconnect(MAX_BACKOFF_MS, described);
         return;
       }
       if (code === 4010 || code === 4011) {
-        log(`gateway closed with ${String(code)}${reason}: sharding must not be changed while resuming`);
+        log(`${described}: sharding must not be changed while resuming`);
         sessionId = null;
         sequence = null;
         gatewayUrl = GATEWAY_URL;
-        reconnect(MIN_BACKOFF_MS, `close ${String(code)}`);
+        reconnect(MIN_BACKOFF_MS, described);
         return;
       }
       if (code === 4007 || code === 4008 || code === 4009) {
@@ -459,7 +486,7 @@ export function run(): void {
       attempts += 1;
       const backoff = Math.min(MAX_BACKOFF_MS, MIN_BACKOFF_MS * 2 ** (attempts - 1));
       const jittered = backoff / 2 + Math.random() * (backoff / 2);
-      reconnect(jittered, `close ${String(code)}${reason}`);
+      reconnect(jittered, described);
     };
   }
 
