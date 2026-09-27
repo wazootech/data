@@ -54,6 +54,30 @@ different shape the service does not retry, because the remedy is operator work:
 re-create the agent with `letta --backend local agents create`, then point
 `DATA_LETTA_AGENT_ID` at the new id.
 
+## A provider that rate-limited the turn
+
+Data's agent answers from a free-tier provider, so a turn can come back as a
+provider rate limit (`429`, `"retryable": true`) instead of an answer. The
+provider never ran that turn, so nothing was written to memory or to the
+conversation, and re-running it has no side effects.
+
+The service waits and retries the same turn in place, honoring the provider's
+own `retryDelay` when it names one and backing off otherwise, up to
+`DATA_PROVIDER_RETRY_ATTEMPTS` times. A retry never starts another
+conversation: it re-runs the question against the same session, so a recovered
+turn continues the conversation the caller already had.
+
+The wait plus the retry has to fit inside `DATA_LETTA_TIMEOUT_MS`, so a retry
+that would overrun the turn budget is skipped and the rate-limit error is
+returned as it came. Only explicitly retryable provider failures are retried:
+`isRetryableProviderFailure` ignores a missing conversation, an unconfigured
+provider, a timeout, and every other failure, so a retry cannot paper over a
+real error.
+
+This does not give Data a second provider. A durable outage — an exhausted
+daily quota, or a provider that stays down — still fails the turn, and
+`wazootech/data#9` tracks that decision.
+
 ## Environment
 
 | Variable | Purpose |
@@ -63,6 +87,8 @@ re-create the agent with `letta --backend local agents create`, then point
 | `DATA_LETTA_BIN` | The Letta CLI. Defaults to `letta`, resolved against `PATH`. |
 | `DATA_LETTA_TIMEOUT_MS` | Turn timeout before the child process is killed. Defaults to `180000`; the live service sets `420000`, because a question that sends the agent through a long tool loop can take minutes while a simple one answers in seconds. |
 | `DATA_PERSONA_ID` | Persona id for the `DATA_BRAIN=zo` path only. |
+| `DATA_PROVIDER_RETRY_ATTEMPTS` | How many times a rate-limited turn is retried in place. Defaults to `2`. |
+| `DATA_PROVIDER_RETRY_CAP_MS` | Longest single wait before a retry. Defaults to `60000`. |
 | `PORT` | Set by the Zo service. Defaults to `8788` from a shell. |
 | `DATA_HTTP_TOKEN` | Optional shared secret. When set, callers must send it as `x-data-token`. |
 | `DATA_MODEL_NAME` | Optional model override for the persona call. |

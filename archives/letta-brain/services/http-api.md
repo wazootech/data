@@ -16,7 +16,8 @@ Data's live surface, and the only long-running process Data runs.
 ## Environment variable names
 
 `DATA_BRAIN`, `DATA_LETTA_AGENT_ID`, and optionally `DATA_LETTA_BIN`,
-`DATA_LETTA_TIMEOUT_MS`, `DATA_HTTP_TOKEN`, `PORT`. The pre-migration path also uses
+`DATA_LETTA_TIMEOUT_MS`, `DATA_PROVIDER_RETRY_ATTEMPTS`, `DATA_PROVIDER_RETRY_CAP_MS`,
+`DATA_HTTP_TOKEN`, `PORT`. The pre-migration path also uses
 `DATA_PERSONA_ID`, `DATA_MODEL_NAME`, and `ZO_API_BASE`; `ZO_CLIENT_IDENTITY_TOKEN`,
 `DATA_OPENROUTER_API_KEY`, and `DATA_GEMINI_API_KEY` are read from `/root/.zo_secrets` when
 the process starts without them, because managed services do not inherit the host shell
@@ -62,3 +63,12 @@ to keep alive.
   answered `429 RESOURCE_EXHAUSTED` — 5 requests/minute on
   `generate_content_free_tier_requests` — so a per-model request cap, not the key, is the
   ceiling. The OpenRouter handle it replaced was blocked by the free pool's daily cap.
+- 2026-09-26 — rate-limited turns are retried in place (`DATA_PROVIDER_RETRY_ATTEMPTS`,
+  default 2). Measured live first: `POST /ask` returned `HTTP 502` twice in a row with
+  `code: 429`, `"retryable": true`, `retryDelay: "45s"`/`"31s"` from
+  `google/gemini-2.5-flash-lite`, then the same model answered a turn normally about two
+  minutes later — so the limit is per-minute capacity, and the old behavior turned it into
+  a hard failure. Verified against a stub `letta` (no provider calls): a retryable 429
+  followed by success returned `200` with the answer after exactly two child processes; a
+  non-retryable failure produced one child process and no retry; a provider that stayed
+  limited produced three and returned the error unchanged.
