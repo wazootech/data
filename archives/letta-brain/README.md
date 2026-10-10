@@ -65,7 +65,7 @@ the problem it solved no longer reaches this repository.
 Kept rather than left on the branch, because the reusable part is the rule and
 not the service: read the delay the provider named, and bound it.
 `lib/provider-retry.test.ts` (eight cases, including a live `429` captured from
-`data-http`) proves it without a running Letta, and it still runs — `npm test`
+`data-http`) proves it without a running Letta, and it still runs — `pnpm test`
 covers `archives/*/lib/*.test.ts` and `tsconfig.json` includes
 `archives/**/*.ts`, so the archived code is typechecked and its test is verified
 in CI rather than sitting inert.

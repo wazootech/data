@@ -2,6 +2,7 @@
   "name": "data",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.11.2",
   "description": "Data's house: its prompt, its knowledge, and the tooling that deploys its HTTP surface.",
   "scripts": {
     "deploy": "node --experimental-strip-types scripts/zo-deploy.ts",
