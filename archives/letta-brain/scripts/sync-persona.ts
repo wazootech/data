@@ -37,7 +37,11 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--agent") flags.agent = argv[++index] ?? flags.agent;
     else if (arg === "--memory-dir") flags.memoryDir = argv[++index];
     else if (arg === "--help" || arg === "-h") {
-      console.log(readFileSync(fileURLToPath(import.meta.url), "utf8").split("*/")[0]?.replace(/^#!.*\n/u, ""));
+      console.log(
+        readFileSync(fileURLToPath(import.meta.url), "utf8")
+          .split("*/")[0]
+          ?.replace(/^#!.*\n/u, ""),
+      );
       process.exit(0);
     } else {
       console.error(`unknown flag: ${arg}`);
@@ -71,14 +75,18 @@ function main(): number {
   }
 
   if (flags.dryRun) {
-    console.log(`${PERSONA_PATH} differs from agent/instructions.md (${rendered.length} bytes rendered)`);
+    console.log(
+      `${PERSONA_PATH} differs from agent/instructions.md (${rendered.length} bytes rendered)`,
+    );
     return 0;
   }
 
   writeFileSync(personaPath, rendered);
   git(memoryDir, ["add", PERSONA_PATH]);
   git(memoryDir, ["commit", "-m", "chore(persona): re-seed from agent/instructions.md"]);
-  console.log(`seeded ${PERSONA_PATH} and committed ${git(memoryDir, ["rev-parse", "--short", "HEAD"])}`);
+  console.log(
+    `seeded ${PERSONA_PATH} and committed ${git(memoryDir, ["rev-parse", "--short", "HEAD"])}`,
+  );
   return 0;
 }
 

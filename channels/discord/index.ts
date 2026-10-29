@@ -40,7 +40,10 @@ function loadZoSecrets(): void {
     if (eq < 0) continue;
     const key = line.slice("export ".length, eq).trim();
     let value = line.slice(eq + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     if (!key || process.env[key]) continue;
@@ -79,9 +82,13 @@ const ROLE_IDS = readIdList("DATA_DISCORD_ROLE_IDS", "");
 const OWNER_IDS = readIdList("DATA_DISCORD_OWNER_IDS");
 const CHANNEL_IDS = readIdList("DATA_DISCORD_CHANNEL_IDS");
 
-const GATEWAY_URL = (process.env.DATA_DISCORD_GATEWAY_URL ?? "wss://gateway.discord.gg/?v=10&encoding=json").trim();
-const REST = (process.env.DATA_DISCORD_API_BASE ?? "https://discord.com/api/v10").replace(/\/$/u, "");
-const API_VERSION = 10;
+const GATEWAY_URL = (
+  process.env.DATA_DISCORD_GATEWAY_URL ?? "wss://gateway.discord.gg/?v=10&encoding=json"
+).trim();
+const REST = (process.env.DATA_DISCORD_API_BASE ?? "https://discord.com/api/v10").replace(
+  /\/$/u,
+  "",
+);
 
 // GUILDS | GUILD_MESSAGES | MESSAGE_CONTENT. MESSAGE_CONTENT is privileged and
 // must be enabled on the application, or Discord refuses the connection.
@@ -194,7 +201,9 @@ async function discordRequest(
   });
   if (!response.ok && response.status !== 204) {
     const text = await response.text();
-    throw new Error(`discord ${method} ${path} -> ${String(response.status)} ${text.slice(0, 200)}`);
+    throw new Error(
+      `discord ${method} ${path} -> ${String(response.status)} ${text.slice(0, 200)}`,
+    );
   }
   if (response.status === 204) return null;
   return (await response.json()) as unknown;
@@ -204,7 +213,9 @@ type ConversationState = Record<string, { conversation_id: string; updated_at: s
 
 function readConversations(): ConversationState {
   try {
-    return JSON.parse(readFileSync(join(DATA_DIR, "conversations.json"), "utf8")) as ConversationState;
+    return JSON.parse(
+      readFileSync(join(DATA_DIR, "conversations.json"), "utf8"),
+    ) as ConversationState;
   } catch {
     return {};
   }
@@ -220,10 +231,16 @@ function rememberConversation(session: string, conversationId: string): void {
     mkdirSync(DATA_DIR, { recursive: true });
     const all = readConversations();
     all[session] = { conversation_id: conversationId, updated_at: new Date().toISOString() };
-    writeFileSync(join(DATA_DIR, "conversations.json"), `${JSON.stringify(all, null, 2)}\n`, "utf8");
+    writeFileSync(
+      join(DATA_DIR, "conversations.json"),
+      `${JSON.stringify(all, null, 2)}\n`,
+      "utf8",
+    );
   } catch (error) {
     // Losing the id costs context on the next question; it must not cost the answer.
-    log(`could not persist the conversation id for ${session}: ${error instanceof Error ? error.message : String(error)}`);
+    log(
+      `could not persist the conversation id for ${session}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -325,9 +342,13 @@ async function handleMention(message: DiscordMessage): Promise<void> {
           : {}),
       });
     }
-    log(`answered ${message.id} in ${message.channel_id} (${String(answer.length)} chars, ${String(parts.length)} part(s))`);
+    log(
+      `answered ${message.id} in ${message.channel_id} (${String(answer.length)} chars, ${String(parts.length)} part(s))`,
+    );
   } catch (error) {
-    log(`failed to answer ${message.id}: ${error instanceof Error ? error.message : String(error)}`);
+    log(
+      `failed to answer ${message.id}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   } finally {
     stopTyping();
   }
@@ -345,7 +366,9 @@ export function run(): void {
     process.exit(1);
   }
   if (ZO_TOKEN.length === 0) {
-    log("no Zo token in the environment (ZO_API_TOKEN or ZO_CLIENT_IDENTITY_TOKEN); Data cannot reach its persona");
+    log(
+      "no Zo token in the environment (ZO_API_TOKEN or ZO_CLIENT_IDENTITY_TOKEN); Data cannot reach its persona",
+    );
     process.exit(1);
   }
 
@@ -471,7 +494,8 @@ export function run(): void {
         }
         resumePending = false;
         sessionId = payload?.session_id ?? null;
-        if (typeof payload?.resume_gateway_url === "string") gatewayUrl = payload.resume_gateway_url;
+        if (typeof payload?.resume_gateway_url === "string")
+          gatewayUrl = payload.resume_gateway_url;
         BOT_USER_ID = payload?.user?.id ?? BOT_USER_ID;
         attempts = 0;
         const tag = payload?.user?.username ?? "(unknown)";
@@ -517,12 +541,16 @@ export function run(): void {
         return;
       }
       if (code === 4004) {
-        log("gateway refused the connection with 4004 (authentication failed): DATA_DISCORD_BOT_TOKEN is wrong or rotated");
+        log(
+          "gateway refused the connection with 4004 (authentication failed): DATA_DISCORD_BOT_TOKEN is wrong or rotated",
+        );
         reconnect(MAX_BACKOFF_MS, described);
         return;
       }
       if (code === 4013) {
-        log("gateway refused the connection with 4013 (invalid intents): the requested intent bits are not valid for this application");
+        log(
+          "gateway refused the connection with 4013 (invalid intents): the requested intent bits are not valid for this application",
+        );
         reconnect(MAX_BACKOFF_MS, described);
         return;
       }
@@ -554,7 +582,9 @@ export function run(): void {
     });
   }
 
-  log(`bridge starting: persona=${PERSONA_ID} via ${ZO_API} guilds=[${GUILD_IDS.join(",")}] roles=[${ROLE_IDS.join(",")}]`);
+  log(
+    `bridge starting: persona=${PERSONA_ID} via ${ZO_API} guilds=[${GUILD_IDS.join(",")}] roles=[${ROLE_IDS.join(",")}]`,
+  );
   connect();
 }
 

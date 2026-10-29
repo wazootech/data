@@ -23,7 +23,7 @@ test("recognizes a live provider rate-limit failure", () => {
 });
 
 test("recognizes the failure when the provider error is doubly escaped", () => {
-  const escaped = LIVE_429.replace(/"/gu, '\\"').replace(/\\+/gu, '\\\\');
+  const escaped = LIVE_429.replace(/"/gu, '\\"').replace(/\\+/gu, "\\\\");
   assert.equal(isRetryableProviderFailure(escaped, ""), true);
 });
 
@@ -33,7 +33,10 @@ test("recognizes an explicit retryable flag on its own", () => {
 
 test("does not fire on a missing conversation", () => {
   assert.equal(isRetryableProviderFailure("", "Conversation local-conv-999 not found"), false);
-  assert.equal(isRetryableProviderFailure("", "Conversation con_QPvFAwS14xUBFIIb not found\n"), false);
+  assert.equal(
+    isRetryableProviderFailure("", "Conversation con_QPvFAwS14xUBFIIb not found\n"),
+    false,
+  );
 });
 
 test("does not fire on unrelated failures or on a successful result", () => {

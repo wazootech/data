@@ -24,13 +24,17 @@ const SERVICE_DOCTOR = [
   "  data-http: RUNNING, uptime 00:00:17, pid 4812",
   "",
   "Logs (last 10 lines):",
-  "  {\"level\":\"info\",\"event\":\"data-http starting\"}",
-  "  {\"level\":\"info\",\"event\":\"ready: data-http\",\"botId\":\"1551139973359476756\"}",
+  '  {"level":"info","event":"data-http starting"}',
+  '  {"level":"info","event":"ready: data-http","botId":"1551139973359476756"}',
 ].join("\n");
 
 describe("parseZoCommandResult", () => {
   it("reads stdout, stderr, and the exit code", () => {
-    assert.deepEqual(parseZoCommandResult(COMMAND_RESULT), { stdout: "ok\n", stderr: "", returncode: 0 });
+    assert.deepEqual(parseZoCommandResult(COMMAND_RESULT), {
+      stdout: "ok\n",
+      stderr: "",
+      returncode: 0,
+    });
   });
 
   it("restores escaped newlines so git output stays readable", () => {
@@ -57,7 +61,10 @@ describe("parseZoServiceList", () => {
     assert.equal(entries[1].serviceId, "svc_datahttp123");
     assert.equal(entries[1].mode, "process");
     assert.equal(entries[1].label, "data-http");
-    assert.equal(entries[1].workdir, "/home/workspace/users/etok/workspaces/wazootech/repos/computer");
+    assert.equal(
+      entries[1].workdir,
+      "/home/workspace/users/etok/workspaces/wazootech/repos/computer",
+    );
     assert.equal(entries[1].entrypoint, "bun run ./index.ts");
   });
 
@@ -78,7 +85,10 @@ describe("parseZoServiceStatus", () => {
   });
 
   it("reads a fatal service without an uptime", () => {
-    const status = parseZoServiceStatus("  wazoo-discord-zo-bridge: FATAL, retries 3", "wazoo-discord-zo-bridge");
+    const status = parseZoServiceStatus(
+      "  wazoo-discord-zo-bridge: FATAL, retries 3",
+      "wazoo-discord-zo-bridge",
+    );
     assert.equal(status?.state, "FATAL");
     assert.equal(status?.uptimeSeconds, null);
     assert.equal(status?.logs, "");

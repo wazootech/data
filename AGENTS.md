@@ -60,3 +60,13 @@ File an issue only when real work surfaced a bug, a divergence from intended sem
 or a genuine QoL gap that measurably cost time or trust. Never hunt for improvements.
 Finish the current task first, check existing issues, then file one precise issue with a
 recommended fix.
+
+## Code health
+
+Family-wide rules live in the [wazootech workspace constitution](https://github.com/wazootech/workspace/blob/main/AGENTS.md#code-health-standards); this repo's specifics:
+
+- `verify` runs `pnpm install --frozen-lockfile`, `format:check`, `lint`, `typecheck`, and `test`; `.node-version` pins Node.
+- Prettier uses width 100 and covers code and config, not Markdown prose. `.gitattributes` forces LF.
+- Before pushing, run `pnpm exec prettier --check .`, `pnpm exec eslint . --max-warnings 0`, `pnpm run typecheck`, and `pnpm test`.
+- Merging to `main` can trigger `deploy.yml`, which restarts the `data-discord` bot when `channels/discord/**`, `lib/**`, `scripts/**`, or `package.json` change.
+- `no-explicit-any` is an ESLint error. `secret-scan.yml` runs gitleaks, third-party actions are pinned to commit SHAs, and `code-health.yml` only warns (file length, TODOs without an issue link). `.github/CODEOWNERS` routes review.

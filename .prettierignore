@@ -1,0 +1,8 @@
+node_modules
+pnpm-lock.yaml
+channels/http/data
+# Spec-exact shared workflows; keep byte-identical across the org.
+.github/workflows/code-health.yml
+.github/workflows/secret-scan.yml
+# Data's published prose is authored by hand; prettier covers code and config only.
+*.md
