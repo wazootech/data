@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { memoryDirFor, PERSONA_DESCRIPTION, personaDrifted, renderPersona } from "./sync-persona.ts";
+import {
+  memoryDirFor,
+  PERSONA_DESCRIPTION,
+  personaDrifted,
+  renderPersona,
+} from "./sync-persona.ts";
 
 describe("renderPersona", () => {
   it("carries frontmatter, the seed note, and the prompt verbatim", () => {

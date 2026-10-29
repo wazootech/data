@@ -29,7 +29,10 @@ function flatten(stdout: string, stderr: string): string {
 export function isRetryableProviderFailure(stdout: string, stderr: string): boolean {
   const text = flatten(stdout, stderr);
   if (/"retryable"\s*:\s*true/.test(text)) return true;
-  return /"code"\s*:\s*(?:429|503)\b/.test(text) && /\b(?:llm_error|Too Many Requests|rate-limited)\b/i.test(text);
+  return (
+    /"code"\s*:\s*(?:429|503)\b/.test(text) &&
+    /\b(?:llm_error|Too Many Requests|rate-limited)\b/i.test(text)
+  );
 }
 
 /** The delay the provider asked for, when it named one. */

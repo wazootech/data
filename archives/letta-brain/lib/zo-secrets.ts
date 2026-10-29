@@ -23,7 +23,10 @@ export function parseZoSecrets(content: string): Map<string, string> {
     if (eq < 0) continue;
     const key = line.slice("export ".length, eq).trim();
     let value = line.slice(eq + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     if (key.length === 0) continue;
@@ -73,4 +76,3 @@ export function applyProviderAliases(env: NodeJS.ProcessEnv): string[] {
   }
   return applied;
 }
-

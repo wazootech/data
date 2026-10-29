@@ -135,9 +135,15 @@ function conversationFor(session: string | undefined): string | undefined {
   return session === undefined ? undefined : conversations[session]?.conversation_id;
 }
 
-function rememberConversation(session: string | undefined, conversationId: string | undefined): void {
+function rememberConversation(
+  session: string | undefined,
+  conversationId: string | undefined,
+): void {
   if (session === undefined || conversationId === undefined) return;
-  conversations = { ...conversations, [session]: { conversation_id: conversationId, updated_at: new Date().toISOString() } };
+  conversations = {
+    ...conversations,
+    [session]: { conversation_id: conversationId, updated_at: new Date().toISOString() },
+  };
   writeConversations();
 }
 
@@ -225,9 +231,14 @@ function runLettaTurn(
   return runLetta(args);
 }
 
-function runLetta(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
+function runLetta(
+  args: string[],
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(LETTA_PATH ?? LETTA_BIN, args, { env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(LETTA_PATH ?? LETTA_BIN, args, {
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => {
@@ -320,9 +331,10 @@ async function askLetta(
     throw new Error(`letta -> exit ${code}: ${detail.length > 0 ? detail : "no output"}`);
   }
   if (parsed.is_error === true || (code ?? 0) !== 0) {
-    const detail = typeof parsed.result === "string" && parsed.result.trim().length > 0
-      ? parsed.result.trim()
-      : (stderr.trim() || stdout.trim()).slice(-300);
+    const detail =
+      typeof parsed.result === "string" && parsed.result.trim().length > 0
+        ? parsed.result.trim()
+        : (stderr.trim() || stdout.trim()).slice(-300);
     throw new Error(`letta -> exit ${code}: ${detail}`);
   }
   // `existing` is the id recovery just discarded, so a fresh turn whose JSON
@@ -334,7 +346,10 @@ async function askLetta(
         ? undefined
         : existing;
   rememberConversation(session, conversationId);
-  const answer = typeof parsed.result === "string" ? parsed.result.trim() : JSON.stringify(parsed.result, null, 2);
+  const answer =
+    typeof parsed.result === "string"
+      ? parsed.result.trim()
+      : JSON.stringify(parsed.result, null, 2);
   return { answer, conversationId };
 }
 
@@ -346,7 +361,10 @@ async function askViaZo(
 ): Promise<{ answer: string; conversationId: string | undefined }> {
   if (ZO_TOKEN.length === 0) throw new Error("no Zo credential: set ZO_CLIENT_IDENTITY_TOKEN");
   if (PERSONA_ID.length === 0) throw new Error("no persona: set DATA_PERSONA_ID");
-  const body: Record<string, unknown> = { input: frameQuestion(question, source), persona_id: PERSONA_ID };
+  const body: Record<string, unknown> = {
+    input: frameQuestion(question, source),
+    persona_id: PERSONA_ID,
+  };
   const existing = conversationFor(session);
   if (existing !== undefined) body.conversation_id = existing;
   const response = await fetch(`${ZO_API}/zo/ask`, {
@@ -362,9 +380,11 @@ async function askViaZo(
     throw new Error(`zo/ask -> ${response.status} ${(await response.text()).slice(0, 300)}`);
   }
   const data = (await response.json()) as { conversation_id?: string; output?: unknown };
-  const conversationId = data.conversation_id ?? response.headers.get("x-conversation-id") ?? undefined;
+  const conversationId =
+    data.conversation_id ?? response.headers.get("x-conversation-id") ?? undefined;
   rememberConversation(session, conversationId);
-  const answer = typeof data.output === "string" ? data.output : JSON.stringify(data.output, null, 2);
+  const answer =
+    typeof data.output === "string" ? data.output : JSON.stringify(data.output, null, 2);
   return { answer, conversationId };
 }
 
@@ -426,7 +446,11 @@ async function handleAsk(request: IncomingMessage, response: ServerResponse): Pr
     return;
   }
   try {
-    const { answer, conversationId } = await askData(question, readString(fields.session), readString(fields.source));
+    const { answer, conversationId } = await askData(
+      question,
+      readString(fields.session),
+      readString(fields.source),
+    );
     json(response, 200, { answer, conversationId: conversationId ?? null });
   } catch (error) {
     console.error(new Date().toISOString(), "ask failed", error);
@@ -460,18 +484,38 @@ const server = createServer((request, response) => {
 server.listen(PORT, () => {
   // The deploy step greps a running service's log for this line to prove the
   // restart landed on the revision that was just pushed.
-  const target = BRAIN === "letta" ? `agent ${LETTA_AGENT_ID}` : `persona ${PERSONA_ID || "(unset)"}`;
-  console.log(new Date().toISOString(), `ready: data-http on port ${PORT} brain ${BRAIN} ${target}`);
+  const target =
+    BRAIN === "letta" ? `agent ${LETTA_AGENT_ID}` : `persona ${PERSONA_ID || "(unset)"}`;
+  console.log(
+    new Date().toISOString(),
+    `ready: data-http on port ${PORT} brain ${BRAIN} ${target}`,
+  );
   if (BRAIN === "letta" && LETTA_PATH === undefined) {
-    console.warn(new Date().toISOString(), `no Letta CLI: ${LETTA_BIN} is not on PATH, so /ask will fail until DATA_LETTA_BIN is set`);
+    console.warn(
+      new Date().toISOString(),
+      `no Letta CLI: ${LETTA_BIN} is not on PATH, so /ask will fail until DATA_LETTA_BIN is set`,
+    );
   }
-  if (BRAIN === "letta" && process.env.OPENROUTER_API_KEY === undefined && process.env.AI_GATEWAY_API_KEY === undefined) {
-    console.warn(new Date().toISOString(), "no provider key: set OPENROUTER_API_KEY (or AI_GATEWAY_API_KEY) or /ask will fail");
+  if (
+    BRAIN === "letta" &&
+    process.env.OPENROUTER_API_KEY === undefined &&
+    process.env.AI_GATEWAY_API_KEY === undefined
+  ) {
+    console.warn(
+      new Date().toISOString(),
+      "no provider key: set OPENROUTER_API_KEY (or AI_GATEWAY_API_KEY) or /ask will fail",
+    );
   }
   if (BRAIN === "zo" && ZO_TOKEN.length === 0) {
-    console.warn(new Date().toISOString(), "no Zo credential: /ask will fail until ZO_CLIENT_IDENTITY_TOKEN is set");
+    console.warn(
+      new Date().toISOString(),
+      "no Zo credential: /ask will fail until ZO_CLIENT_IDENTITY_TOKEN is set",
+    );
   }
   if (BRAIN === "zo" && PERSONA_ID.length === 0) {
-    console.warn(new Date().toISOString(), "no persona id: /ask will fail until DATA_PERSONA_ID is set");
+    console.warn(
+      new Date().toISOString(),
+      "no persona id: /ask will fail until DATA_PERSONA_ID is set",
+    );
   }
 });
